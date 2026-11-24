@@ -82,9 +82,8 @@ fun DiaTela(
     // abre com o AGORA perto do meio da tela
     val estado = rememberLazyListState(initialFirstVisibleItemIndex = (antes.size - 2).coerceAtLeast(0))
 
-    AreaDeDesenho(
+    AreaDeGestos(
         aoDeslizar = { dx, dy -> if (direcao(dx, dy) == 0 && dx < 0) acoes.voltar() },
-        aoLetra = { _, _ -> },
         modifier = Modifier.fillMaxSize(),
     ) {
         LazyColumn(

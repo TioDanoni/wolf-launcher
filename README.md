@@ -16,9 +16,6 @@ Kotlin + Jetpack Compose. Pacote `org.wolfos.launcher`, Android 8.0 (API 26) ou 
   verbos e a barra de comando na altura do polegar.
 - **Verbos:** os apps entram sozinhos (pelo pacote conhecido ou pela categoria que o app
   declara). Tocar abre os apps do verbo; segurar um app deixa trocar o verbo dele.
-- **Desenhar uma letra** em qualquer lugar da tela inicial: abre um leque com os apps
-  daquela letra; desenhar outra por cima afina ("S" → "SP"). Se a letra vier errada, as
-  alternativas ficam embaixo ("era outra?"). O reconhecedor é próprio, leve e sem rede.
 - **Barra de comando:** os resultados sobem a partir da barra (o melhor colado nela, o
   Enter faz ele). Entende apps, pessoas da agenda ("ligar mãe", "msg ana"), contas
   ("12 × 3", "15% de 80"), "timer 5 min", "alarme 7:30", "lanterna" e os ajustes do
@@ -89,7 +86,6 @@ app/src/main/java/org/wolfos/launcher/
   dados/Icones.kt          ícones carregados só quando aparecem, num cache pequeno
   dados/Verbos.kt          os verbos e em qual cada app entra
   dados/Preferencias.kt    os ajustes do launcher
-  dados/Letras.kt          reconhecer a letra desenhada com o dedo
   dados/Comandos.kt        o que a barra entende: timer, alarme, contas, lanterna, ajustes
   dados/Contatos.kt        a agenda (busca sem acento) e ligar/mensagem
   dados/Padrao.kt          ser a tela inicial do Android
@@ -104,7 +100,7 @@ app/src/main/java/org/wolfos/launcher/
   atualizacao/             consultar o GitHub, baixar, instalar e o trabalho periódico
   ui/Inicio.kt             relógio, faixa do agora, verbos e barra de comando
   ui/Comando.kt            a barra de comando aberta
-  ui/Desenho.kt            a área de desenhar letras e o leque
+  ui/Gestos.kt             os deslizes (cima, baixo, lados) e as pílulas
   ui/VerboTela.kt          quem está esperando e os apps de um verbo
   ui/MatilhaUi.kt          a fileira da Matilha
   ui/DiaTela.kt            seu dia: antes, agora e depois

@@ -19,7 +19,6 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Contacts
-import androidx.compose.material.icons.outlined.Draw
 import androidx.compose.material.icons.outlined.Gesture
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Groups
@@ -306,7 +305,6 @@ private fun PaginaGestos(voltar: () -> Unit) {
     LinhaMenu(Icons.Outlined.SwipeRight, "Deslizar para a direita", "seu dia: antes, agora e depois")
     LinhaMenu(Icons.Outlined.SwipeLeft, "Deslizar para a esquerda", "o painel de widgets")
     LinhaMenu(Icons.Outlined.Lock, "Tocar duas vezes", "bloqueia a tela (liga em Ajustes)")
-    LinhaMenu(Icons.Outlined.Draw, "Desenhar uma letra", "em qualquer lugar: o leque de apps daquela letra")
     LinhaMenu(Icons.Outlined.TouchApp, "Tocar num verbo", "os apps dele e quem está esperando")
     LinhaMenu(Icons.Outlined.Category, "Segurar um verbo", "renomear, escolher os apps, esconder")
     LinhaMenu(Icons.Outlined.Apps, "Segurar um app", "atalhos do app, verbo, renomear, esconder, desinstalar")

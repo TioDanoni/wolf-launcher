@@ -327,7 +327,7 @@ private fun Exemplos(temContatos: Boolean, aoUsar: (String) -> Unit, aoPermitir:
 @Composable
 private fun Barra(texto: String, aoMudar: (String) -> Unit, foco: FocusRequester, aoFechar: () -> Unit, aoEnviar: () -> Unit) {
     val cor = MaterialTheme.colorScheme.primary
-    // TextFieldValue so para o cursor ir para o fim quando o texto vem de fora (exemplos, leque)
+    // TextFieldValue so para o cursor ir para o fim quando o texto vem de fora (os exemplos)
     var valor by remember { mutableStateOf(TextFieldValue(texto, TextRange(texto.length))) }
     if (valor.text != texto) valor = TextFieldValue(texto, TextRange(texto.length))
     Row(

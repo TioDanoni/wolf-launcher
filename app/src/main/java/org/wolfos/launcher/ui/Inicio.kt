@@ -146,13 +146,10 @@ class AcoesInicio(
 /** O que esta esperando num verbo: a ultima notificacao e quantas tem. */
 data class Previa(val texto: String, val total: Int)
 
-/** O leque aberto: as letras desenhadas ate agora e onde o dedo parou. */
-private data class EstadoLeque(val prefixo: String, val alternativas: List<Char>, val centro: Offset)
 
 /**
  * A tela inicial: relogio, a faixa do agora, os verbos (o que voce quer fazer) e a
- * barra de comando na altura do polegar. Desenhar uma letra em qualquer lugar abre o
- * leque de apps; para cima abre todos os apps; para baixo, as notificacoes; segurar
+ * barra de comando na altura do polegar. Para cima abre todos os apps; para baixo, as notificacoes; segurar
  * num espaco vazio abre o menu do launcher.
  */
 @Composable
@@ -182,10 +179,9 @@ fun Inicio(
 ) {
     var menuAberto by remember { mutableStateOf(false) }
     var pedindoBloqueio by remember { mutableStateOf(false) }
-    var leque by remember { mutableStateOf<EstadoLeque?>(null) }
 
     Box(Modifier.fillMaxSize()) {
-        AreaDeDesenho(
+        AreaDeGestos(
             aoDeslizar = { dx, dy ->
                 when (direcao(dx, dy)) {
                     -1 -> acoes.abrirGaveta()
@@ -193,7 +189,6 @@ fun Inicio(
                     else -> if (dx > 0) acoes.abrirDia() else acoes.abrirWidgets()
                 }
             },
-            aoLetra = { letras, fim -> leque = EstadoLeque(letras.first().toString(), letras.drop(1), fim) },
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(acoes.bloquear != null) {
@@ -303,24 +298,6 @@ fun Inicio(
                     fechar(); acoes.abrirWidgets()
                 }
             }
-        }
-
-        leque?.let { l ->
-            Leque(
-                apps = apps,
-                prefixo = l.prefixo,
-                alternativas = l.alternativas,
-                centro = l.centro,
-                aoAbrir = { app -> leque = null; acoes.abrirApp(app) },
-                aoTrocarLetra = { c ->
-                    // a letra reconhecida estava errada: troca a ultima e guarda a errada como alternativa
-                    val errada = l.prefixo.last()
-                    leque = l.copy(prefixo = l.prefixo.dropLast(1) + c, alternativas = l.alternativas - c + errada)
-                },
-                aoMaisLetras = { letras -> leque = l.copy(prefixo = l.prefixo + letras.first(), alternativas = letras.drop(1)) },
-                aoVerTodos = { leque = null; acoes.abrirComando(l.prefixo.lowercase()) },
-                aoFechar = { leque = null },
-            )
         }
     }
 }
@@ -528,7 +505,7 @@ private fun BarraBusca(noite: Boolean, aoTocar: () -> Unit) {
         Icon(Icons.Outlined.Search, contentDescription = null, tint = cor, modifier = Modifier.size(22.dp))
         Box(Modifier.padding(horizontal = 14.dp).width(1.dp).height(22.dp).background(Texto.copy(alpha = 0.2f)))
         Text(
-            if (noite) "Buscar ou desenhar uma letra…" else "Buscar apps, contatos ou comandos…",
+            "Buscar apps, contatos ou comandos…",
             color = TextoFraco,
             fontSize = 14.5.sp,
             maxLines = 1,

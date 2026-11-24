@@ -74,9 +74,8 @@ class AcoesWidgets(
 @Composable
 fun WidgetsTela(salvos: List<WidgetSalvo>, acoes: AcoesWidgets) {
     var escolhendo by remember { mutableStateOf(false) }
-    AreaDeDesenho(
+    AreaDeGestos(
         aoDeslizar = { dx, dy -> if (direcao(dx, dy) == 0 && dx > 0) acoes.voltar() },
-        aoLetra = { _, _ -> },
         modifier = Modifier.fillMaxSize(),
     ) {
         Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState())) {
