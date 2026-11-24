@@ -104,7 +104,6 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import org.wolfos.launcher.atualizacao.EstadoAtualizacao
 import org.wolfos.launcher.dados.AppInfo
-import org.wolfos.launcher.dados.Verbo
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -129,7 +128,6 @@ fun agora(): LocalDateTime {
 
 /** O que a tela inicial pede para a tela principal fazer. */
 class AcoesInicio(
-    val abrirVerbo: (Verbo) -> Unit,
     /** Abre a barra de comando, ja com um texto (ou vazia). */
     val abrirComando: (String) -> Unit,
     val abrirGaveta: () -> Unit,
@@ -140,10 +138,6 @@ class AcoesInicio(
     val definirPadrao: () -> Unit,
     val abrirApp: (AppInfo) -> Unit,
     val abrirDia: () -> Unit,
-    /** Segurar um verbo: o menu de editar. */
-    val editarVerbo: (Verbo) -> Unit = {},
-    /** Ajustes direto na pagina dos verbos. */
-    val ajustesDosVerbos: () -> Unit = {},
     val abrirWidgets: () -> Unit = {},
     /** Bloquear a tela (nulo: dois toques desligado). Devolve falso se falta ligar o servico. */
     val bloquear: (() -> Boolean)? = null,
@@ -152,34 +146,20 @@ class AcoesInicio(
     val permitirAvisos: (() -> Unit)? = null,
 )
 
-/** O que esta esperando num verbo: a ultima notificacao e quantas tem. */
-data class Previa(val texto: String, val total: Int)
-
 
 /**
- * A tela inicial: relogio, a faixa do agora, os verbos (o que voce quer fazer) e a
+ * A tela inicial: relogio, a faixa do agora, o painel de apps e a
  * barra de comando na altura do polegar. Para cima abre todos os apps; para baixo, as notificacoes; segurar
  * num espaco vazio abre o menu do launcher.
  */
 @Composable
 fun Inicio(
-    apps: List<AppInfo>,
-    verbos: Map<Verbo, List<AppInfo>>,
     atualizacao: EstadoAtualizacao,
     ehPadrao: Boolean,
-    previas: Map<Verbo, Previa>,
     /** O proximo compromisso (de dia) ou o despertador (a noite). */
     faixaAgora: FaixaInfo?,
     noite: Boolean,
-    /** Os apps que aparecem ao lado de cada verbo (os mais usados); vazio = so texto. */
-    iconesDosVerbos: Map<Verbo, List<AppInfo>>,
-    /** O nome de cada verbo (a pessoa pode ter trocado). */
-    titulos: Map<Verbo, String>,
-    /** A musica de agora (aparece no Ouvir). */
-    musica: Musica?,
-    acoesMusica: AcoesMusica,
     acoes: AcoesInicio,
-    /** O tempo (vem da notificacao do app do clima), ao lado da data. */
     clima: Clima? = null,
     /** O jeito do relogio grande. */
     estiloRelogio: EstiloRelogio = EstiloRelogio.UIVO,
@@ -187,7 +167,9 @@ fun Inicio(
     tempo: (@Composable () -> Unit)? = null,
     /** Os compromissos de hoje, embaixo do clima. */
     compromissos: (@Composable () -> Unit)? = null,
-    /** O player de musica (ou nada); com ele, o Ouvir nao repete os controles. */
+    /** O painel de apps (Agora e Favoritos), embaixo, perto do polegar. */
+    painel: @Composable () -> Unit = {},
+    /** O player de musica (ou nada). */
     player: (@Composable () -> Unit)? = null,
     /** A fileira da Matilha (ou nada), logo acima da barra de comando. */
     matilha: @Composable () -> Unit,
@@ -238,32 +220,12 @@ fun Inicio(
                     faixaAgora?.let { f -> FaixaLimpa(f.simbolo, f.texto, f.botao, f.acao) }
                     textoAtualizacao(atualizacao)?.let { (simbolo, texto, botao) -> FaixaLimpa(simbolo, texto, botao, acoes.atualizar) }
                 }
-                // os verbos ficam embaixo, perto do polegar; se nao couberem, rolam
+                // o painel fica embaixo, perto do polegar; se nao couber, rola
                 Box(Modifier.weight(1f).fillMaxWidth().clipToBounds()) {
                     Column(
                         verticalArrangement = Arrangement.Bottom,
                         modifier = Modifier.align(Alignment.BottomStart).verticalScroll(rememberScrollState()),
-                    ) {
-                        val lista = verbos.keys.toList()
-                        lista.forEachIndexed { i, v ->
-                            LinhaVerbo(
-                                verbo = v,
-                                titulo = titulos[v] ?: v.titulo,
-                                previa = previas[v],
-                                icones = iconesDosVerbos[v].orEmpty(),
-                                musica = musica.takeIf { v == Verbo.OUVIR },
-                                controles = player == null,
-                                indice = i,
-                                ultima = i == lista.lastIndex,
-                                acoesMusica = acoesMusica,
-                                aoApp = acoes.abrirApp,
-                                aoSegurar = { acoes.editarVerbo(v) },
-                            ) { acoes.abrirVerbo(v) }
-                        }
-                        if (verbos.isEmpty()) {
-                            Text("Lendo seus apps…", color = TextoFraco, modifier = Modifier.padding(8.dp))
-                        }
-                    }
+                    ) { painel() }
                 }
                 Spacer(Modifier.height(18.dp))
                 if (player != null) {
@@ -308,11 +270,8 @@ fun Inicio(
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
                 )
                 SecaoMenu("Tela inicial")
-                LinhaMenu(Icons.Outlined.Settings, "Ajustes do WolfLauncher", "verbos, Matilha, ritmo, permissões", fim = { Seta() }) {
+                LinhaMenu(Icons.Outlined.Settings, "Ajustes do WolfLauncher", "relógio, cores, Matilha, permissões", fim = { Seta() }) {
                     fechar(); acoes.abrirAjustes()
-                }
-                LinhaMenu(Icons.Outlined.Category, "Editar verbos", "renomear, esconder, escolher os apps", fim = { Seta() }) {
-                    fechar(); acoes.ajustesDosVerbos()
                 }
                 LinhaMenu(Icons.Outlined.Wallpaper, "Papel de parede", "a cor de destaque acompanha", fim = { Seta() }) {
                     fechar(); acoes.papelDeParede()
@@ -337,131 +296,6 @@ class AcoesMusica(
     val proxima: () -> Unit,
     val abrir: () -> Unit,
 )
-
-/** O desenho e a descricao de cada verbo. */
-fun iconeDoVerbo(v: Verbo): ImageVector = when (v) {
-    Verbo.CONVERSAR -> Icons.Outlined.ChatBubbleOutline
-    Verbo.TRABALHAR -> Icons.Outlined.WorkOutline
-    Verbo.OUVIR -> Icons.Outlined.Headphones
-    Verbo.IR -> Icons.Outlined.Explore
-    Verbo.VER -> Icons.Outlined.OndemandVideo
-    Verbo.CRIAR -> Icons.Outlined.Brush
-    Verbo.JOGAR -> Icons.Outlined.SportsEsports
-}
-
-fun descricaoDoVerbo(v: Verbo): String = when (v) {
-    Verbo.CONVERSAR -> "Mensagens, chamadas e redes"
-    Verbo.TRABALHAR -> "E-mail, agenda e documentos"
-    Verbo.OUVIR -> "Música, podcasts e áudio"
-    Verbo.IR -> "Mapas, transporte e viagens"
-    Verbo.VER -> "Vídeos, filmes e séries"
-    Verbo.CRIAR -> "Câmera, notas e edição"
-    Verbo.JOGAR -> "Jogos"
-}
-
-/**
- * Um verbo na tela inicial: o desenho, uma divisoria, o nome com a descricao embaixo
- * e, na direita, os apps que voce mais usa dele (numa cor so; tocar abre direto). Com
- * algo esperando, a descricao vira a previa; no Ouvir, a musica de agora e os controles.
- */
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun LinhaVerbo(
-    verbo: Verbo,
-    titulo: String,
-    previa: Previa?,
-    icones: List<AppInfo>,
-    musica: Musica?,
-    controles: Boolean,
-    indice: Int,
-    ultima: Boolean,
-    acoesMusica: AcoesMusica,
-    aoApp: (AppInfo) -> Unit,
-    aoSegurar: () -> Unit,
-    aoTocar: () -> Unit,
-) {
-    val cor = MaterialTheme.colorScheme.primary
-    val ativo = previa != null || musica?.tocando == true
-    val aparecer = remember { Animatable(0f) }
-    LaunchedEffect(Unit) {
-        delay(indice * 45L)
-        aparecer.animateTo(1f, tween(420, easing = FastOutSlowInEasing))
-    }
-    val toque = remember { MutableInteractionSource() }
-    val apertado by toque.collectIsPressedAsState()
-    val escala by animateFloatAsState(if (apertado) 0.97f else 1f, label = "escala")
-
-    Column(
-        Modifier.graphicsLayer {
-            alpha = aparecer.value
-            translationY = (1f - aparecer.value) * 28.dp.toPx()
-            scaleX = escala
-            scaleY = escala
-        },
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .combinedClickable(interactionSource = toque, indication = null, onClick = aoTocar, onLongClick = aoSegurar)
-                .padding(horizontal = 6.dp, vertical = 12.dp),
-        ) {
-            val corV = corDoVerbo(verbo)
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Brush.linearGradient(listOf(corV.copy(alpha = if (ativo) 0.38f else 0.22f), corV.copy(alpha = 0.06f))))
-                    .border(1.dp, corV.copy(alpha = if (ativo) 0.7f else 0.35f), RoundedCornerShape(14.dp)),
-            ) { Icon(iconeDoVerbo(verbo), contentDescription = null, tint = corV, modifier = Modifier.size(24.dp)) }
-            Box(Modifier.padding(horizontal = 14.dp).width(1.dp).height(34.dp).background(corV.copy(alpha = 0.35f)))
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        titulo,
-                        fontSize = 25.sp,
-                        fontWeight = if (ativo) FontWeight.SemiBold else FontWeight.Normal,
-                        color = Texto,
-                        style = TextStyle(shadow = SombraTexto),
-                    )
-                    when {
-                        musica?.tocando == true -> Equalizador(corDoVerbo(verbo), Modifier.padding(start = 10.dp))
-                        previa != null -> Box(Modifier.padding(start = 8.dp).size(7.dp).clip(CircleShape).background(corDoVerbo(verbo)))
-                    }
-                }
-                val sub = when {
-                    musica != null -> (if (musica.tocando) "♪ " else "⏸ ") + musica.titulo + (if (musica.artista.isNotBlank()) " · " + musica.artista else "")
-                    previa != null -> previa.texto + if (previa.total > 1) "  ·  +${previa.total - 1}" else ""
-                    else -> descricaoDoVerbo(verbo)
-                }
-                Text(
-                    sub,
-                    color = if (musica != null || previa != null) corDoVerbo(verbo) else Texto.copy(alpha = 0.6f),
-                    fontSize = 12.5.sp,
-                    fontWeight = if (musica != null || previa != null) FontWeight.Medium else FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = TextStyle(shadow = SombraTexto),
-                )
-            }
-            if (musica != null && controles) {
-                ControlesMusica(musica, acoesMusica)
-            } else if (icones.isNotEmpty() && (musica == null || !controles)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    for (app in icones) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier.size(40.dp).clip(CircleShape).clickable { aoApp(app) },
-                        ) { IconeApp(app, 26.dp, mono = true) }
-                    }
-                }
-            }
-        }
-        if (!ultima) Box(Modifier.fillMaxWidth().height(1.dp).background(Texto.copy(alpha = 0.12f)))
-    }
-}
 
 /** O nome do launcher em cima, com a marca do lobo e dois tracos. */
 @Composable
@@ -553,53 +387,6 @@ private fun BarraBusca(noite: Boolean, aoTocar: () -> Unit) {
     }
 }
 
-/** Capa, tocar/pausar e proxima, ao lado do Ouvir. */
-@Composable
-private fun ControlesMusica(musica: Musica, acoes: AcoesMusica) {
-    val cor = MaterialTheme.colorScheme.primary
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        musica.capa?.let {
-            Image(
-                it, contentDescription = null, contentScale = ContentScale.Crop,
-                modifier = Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)).clickable(onClick = acoes.abrir),
-            )
-        }
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.padding(start = 8.dp).size(42.dp).clip(CircleShape).background(cor).clickable(onClick = acoes.tocarOuPausar),
-        ) { Text(if (musica.tocando) "❚❚" else "▶", color = Fundo, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.size(42.dp).clip(CircleShape).clickable(onClick = acoes.proxima),
-        ) { Text("⏭", color = Texto, fontSize = 18.sp, style = TextStyle(shadow = SombraTexto)) }
-    }
-}
-
-/** Tres barrinhas que dancam enquanto a musica toca. */
-@Composable
-private fun Equalizador(cor: Color, modifier: Modifier = Modifier) {
-    val t = rememberInfiniteTransition(label = "eq")
-    val alturas = listOf(520, 380, 640).map { duracao ->
-        t.animateFloat(
-            initialValue = 0.25f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(tween(duracao, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-            label = "barra",
-        )
-    }
-    Canvas(modifier.size(width = 20.dp, height = 18.dp)) {
-        val largura = size.width / 5
-        alturas.forEachIndexed { i, a ->
-            val h = size.height * a.value
-            drawRoundRect(
-                cor,
-                topLeft = Offset(i * largura * 2, size.height - h),
-                size = Size(largura, h),
-                cornerRadius = CornerRadius(largura / 2),
-            )
-        }
-    }
-}
 
 @Composable
 private fun Relogio(clima: Clima?, modifier: Modifier = Modifier) {

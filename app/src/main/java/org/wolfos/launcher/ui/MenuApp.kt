@@ -7,8 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -19,7 +17,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.DriveFileRenameOutline
 import androidx.compose.material.icons.outlined.Info
@@ -52,27 +50,28 @@ import kotlinx.coroutines.withContext
 import org.wolfos.launcher.dados.AppInfo
 import org.wolfos.launcher.dados.AtalhoApp
 import org.wolfos.launcher.dados.Atalhos
-import org.wolfos.launcher.dados.Verbo
+import org.wolfos.launcher.avisos.Aviso
 
 /** O que da para fazer com um app (a tela principal liga cada acao). */
 class AcoesApp(
     val abrir: (AppInfo) -> Unit,
-    val verboDe: (AppInfo) -> Verbo?,
-    val mudarVerbo: (AppInfo, Verbo?) -> Unit,
     val informacoes: (AppInfo) -> Unit,
     val desinstalar: (AppInfo) -> Unit,
     /** Nulo volta ao nome original. */
     val renomear: (AppInfo, String?) -> Unit = { _, _ -> },
     val esconder: (AppInfo) -> Unit = {},
     val abrirAtalho: (AtalhoApp) -> Unit = {},
-    /** O nome de cada verbo (a pessoa pode ter trocado). */
-    val tituloDoVerbo: (Verbo) -> String = { it.titulo },
+    val ehFavorito: (AppInfo) -> Boolean = { false },
+    val alternarFavorito: (AppInfo) -> Unit = {},
+    /** As mensagens do app (as notificacoes dele), para responder no menu. */
+    val avisosDe: (AppInfo) -> List<Aviso> = { emptyList() },
+    val acoesAviso: AcoesAviso? = null,
 )
 
 /**
- * O menu de segurar um app, numa folha que sobe de baixo: os atalhos do proprio app
- * (nova conversa, tirar foto...) e o que o launcher faz com ele: mudar de verbo,
- * renomear, esconder, informacoes e desinstalar.
+ * O menu de segurar um app, numa folha que sobe de baixo: as mensagens dele (com
+ * Responder), os atalhos do proprio app (nova conversa, tirar foto...) e o que o
+ * launcher faz com ele: fixar nos favoritos, renomear, esconder, informacoes e desinstalar.
  */
 @Composable
 fun MenuApp(app: AppInfo, aberto: Boolean, aoFechar: () -> Unit, acoes: AcoesApp) {
@@ -82,7 +81,8 @@ fun MenuApp(app: AppInfo, aberto: Boolean, aoFechar: () -> Unit, acoes: AcoesApp
         value = withContext(Dispatchers.IO) { Atalhos.doApp(contexto, app) }
     }
     var modo by remember { mutableStateOf<String?>(null) }
-    val atual = acoes.verboDe(app)
+    val favorito = acoes.ehFavorito(app)
+    val mensagens = acoes.avisosDe(app)
 
     Folha(aoFechar) {
         // quem e o app
@@ -92,13 +92,22 @@ fun MenuApp(app: AppInfo, aberto: Boolean, aoFechar: () -> Unit, acoes: AcoesApp
                 Text(app.nome, color = Texto, fontSize = 21.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
                     listOfNotNull(
-                        atual?.let { "em ${acoes.tituloDoVerbo(it)}" } ?: "fora dos verbos",
+                        if (favorito) "nos favoritos" else null,
+                        if (mensagens.isNotEmpty()) "${mensagens.size} mensagem(ns)" else null,
                         app.nomeOriginal.takeIf { it != app.nome }?.let { "nome original: $it" },
-                    ).joinToString(" · "),
+                    ).joinToString(" · ").ifEmpty { app.pacote },
                     color = TextoFraco,
                     fontSize = 13.sp,
                 )
             }
+        }
+
+        if (mensagens.isNotEmpty() && acoes.acoesAviso != null) {
+            SecaoMenu("Mensagens")
+            Column(Modifier.padding(horizontal = 14.dp)) {
+                for (a in mensagens.take(5)) CartaoAviso(a, app.nome, acoes.acoesAviso)
+            }
+            Divisoria(Modifier.padding(top = 8.dp))
         }
 
         if (atalhos.isNotEmpty()) {
@@ -121,11 +130,10 @@ fun MenuApp(app: AppInfo, aberto: Boolean, aoFechar: () -> Unit, acoes: AcoesApp
 
         SecaoMenu("No launcher")
         LinhaMenu(
-            Icons.Outlined.Category,
-            "Mudar de verbo",
-            atual?.let { "agora em ${acoes.tituloDoVerbo(it)}" } ?: "agora fora dos verbos",
-        ) { modo = if (modo == "verbo") null else "verbo" }
-        if (modo == "verbo") EscolherVerbo(atual, acoes.tituloDoVerbo) { v -> acoes.mudarVerbo(app, v); aoFechar() }
+            Icons.Outlined.PushPin,
+            if (favorito) "Tirar dos favoritos" else "Fixar nos favoritos",
+            if (favorito) "sai do painel da tela inicial" else "fica no painel da tela inicial",
+        ) { acoes.alternarFavorito(app); aoFechar() }
 
         LinhaMenu(Icons.Outlined.DriveFileRenameOutline, "Renomear", "só no launcher; o app continua igual") {
             modo = if (modo == "nome") null else "nome"
@@ -134,27 +142,13 @@ fun MenuApp(app: AppInfo, aberto: Boolean, aoFechar: () -> Unit, acoes: AcoesApp
             CampoNome(app.nome, app.nomeOriginal.takeIf { it != app.nome }) { novo -> acoes.renomear(app, novo); aoFechar() }
         }
 
-        LinhaMenu(Icons.Outlined.VisibilityOff, "Esconder", "some dos verbos, da busca e da lista; volta em Ajustes") {
+        LinhaMenu(Icons.Outlined.VisibilityOff, "Esconder", "some do painel, da busca e da lista; volta em Ajustes") {
             aoFechar(); acoes.esconder(app)
         }
         LinhaMenu(Icons.Outlined.Info, "Informações do app", "permissões, armazenamento, notificações") {
             aoFechar(); acoes.informacoes(app)
         }
         LinhaMenu(Icons.Outlined.DeleteOutline, "Desinstalar", cor = Perigo) { aoFechar(); acoes.desinstalar(app) }
-    }
-}
-
-/** Os verbos em pilulas para escolher (e "nenhum", que deixa o app so na lista). */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun EscolherVerbo(atual: Verbo?, titulo: (Verbo) -> String, aoEscolher: (Verbo?) -> Unit) {
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.padding(start = 78.dp, end = 24.dp, bottom = 10.dp),
-    ) {
-        for (v in Verbo.entries) Pilula(titulo(v), destaque = v == atual) { aoEscolher(v) }
-        Pilula("Nenhum", destaque = atual == null) { aoEscolher(null) }
     }
 }
 
@@ -187,10 +181,4 @@ fun CampoNome(atual: String, original: String?, aoSalvar: (String?) -> Unit) {
             if (original != null) Pilula("Voltar para “$original”", destaque = false) { aoSalvar(null) }
         }
     }
-}
-
-/** O desenho pequeno de verbo (para quem quiser usar fora da tela inicial). */
-@Composable
-fun IconeVerbo(v: Verbo, modifier: Modifier = Modifier) {
-    Icon(iconeDoVerbo(v), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = modifier)
 }

@@ -25,7 +25,9 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.EventNote
 import androidx.compose.material.icons.outlined.LocationCity
@@ -72,7 +74,6 @@ import org.wolfos.launcher.dados.AppInfo
 import org.wolfos.launcher.dados.Cidade
 import org.wolfos.launcher.dados.FonteMatilha
 import org.wolfos.launcher.dados.TipoMatilha
-import org.wolfos.launcher.dados.Verbo
 
 /** Tudo o que os ajustes mostram. */
 class EstadoAjustes(
@@ -87,7 +88,6 @@ class EstadoAjustes(
     val matilhaPeloWhatsapp: Boolean,
     val fonteMatilha: FonteMatilha,
     val fontesMatilha: List<FonteMatilha>,
-    val iconesNosVerbos: Boolean,
     val mostrarPlayer: Boolean,
     /** O que o player esta vendo agora ("tocando: X (app)", "nenhum app de musica aberto"...). */
     val detalhePlayer: String,
@@ -104,10 +104,10 @@ class EstadoAjustes(
     val janelaNoite: Pair<Int, Int>,
     val doisToques: Boolean,
     val bloqueioLigado: Boolean,
-    /** Quantos apps cada verbo tem (todos os verbos, mesmo os escondidos). */
-    val appsPorVerbo: Map<Verbo, Int>,
-    val titulos: Map<Verbo, String>,
-    val verbosEscondidos: Set<Verbo>,
+    /** Os favoritos do painel (os escolhidos; vazio = o launcher escolhe pelos mais usados). */
+    val favoritos: List<AppInfo>,
+    /** Todos os apps (para adicionar favoritos). */
+    val todosApps: List<AppInfo>,
     val appsEscondidos: List<AppInfo>,
 )
 
@@ -126,7 +126,6 @@ class AcoesAjustes(
     val mostrarMatilha: (Boolean) -> Unit,
     val tipoMatilha: (TipoMatilha) -> Unit,
     val fonteMatilha: (FonteMatilha) -> Unit,
-    val iconesNosVerbos: (Boolean) -> Unit,
     val mostrarPlayer: (Boolean) -> Unit,
     val tempoLigado: (Boolean) -> Unit,
     val escolherCidade: (Cidade) -> Unit,
@@ -138,10 +137,10 @@ class AcoesAjustes(
     val ritmo: (Boolean) -> Unit,
     val modoNoite: (Boolean) -> Unit,
     val janelaNoite: (Int, Int) -> Unit,
-    val editarVerbo: (Verbo) -> Unit,
+    val adicionarFavorito: (AppInfo) -> Unit,
+    val tirarFavorito: (AppInfo) -> Unit,
     val doisToques: (Boolean) -> Unit,
     val ligarBloqueio: () -> Unit,
-    val esconderVerbo: (Verbo, Boolean) -> Unit,
     val mostrarApp: (AppInfo) -> Unit,
     val abrirCodigo: () -> Unit,
 )
@@ -149,12 +148,12 @@ class AcoesAjustes(
 /** As paginas dos ajustes (a tela principal pode abrir direto numa delas). */
 object PaginasAjustes {
     const val PRINCIPAL = "principal"
-    const val VERBOS = "verbos"
+    const val FAVORITOS = "favoritos"
     const val ESCONDIDOS = "escondidos"
     const val GESTOS = "gestos"
 }
 
-/** Os ajustes do launcher: uma pagina principal e paginas para verbos, apps escondidos e gestos. */
+/** Os ajustes do launcher: uma pagina principal e paginas para favoritos, apps escondidos e gestos. */
 @Composable
 fun AjustesTela(estado: EstadoAjustes, acoes: AcoesAjustes, paginaInicial: String = PaginasAjustes.PRINCIPAL) {
     var pagina by rememberSaveable { mutableStateOf(paginaInicial) }
@@ -164,7 +163,7 @@ fun AjustesTela(estado: EstadoAjustes, acoes: AcoesAjustes, paginaInicial: Strin
 
     Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState())) {
         when (pagina) {
-            PaginasAjustes.VERBOS -> PaginaVerbos(estado, acoes, voltar)
+            PaginasAjustes.FAVORITOS -> PaginaFavoritos(estado, acoes, voltar)
             PaginasAjustes.ESCONDIDOS -> PaginaEscondidos(estado, acoes, voltar)
             PaginasAjustes.GESTOS -> PaginaGestos(voltar)
             else -> PaginaPrincipal(estado, acoes) { pagina = it }
@@ -270,14 +269,11 @@ private fun PaginaPrincipal(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (
     ) { acoes.fundoAnimado(!estado.fundoAnimado) }
 
     SecaoMenu("Tela inicial")
-    val naTela = estado.appsPorVerbo.count { (v, n) -> n > 0 && v !in estado.verbosEscondidos }
-    LinhaMenu(Icons.Outlined.Category, "Verbos", "$naTela na tela inicial · renomear, esconder, escolher os apps", fim = { Seta() }) {
-        abrir(PaginasAjustes.VERBOS)
-    }
     LinhaMenu(
-        Icons.Outlined.GridView, "Ícones ao lado dos verbos", "os apps que você mais usa de cada verbo",
-        fim = { ChaveWolf(estado.iconesNosVerbos, acoes.iconesNosVerbos) },
-    ) { acoes.iconesNosVerbos(!estado.iconesNosVerbos) }
+        Icons.Outlined.PushPin, "Favoritos",
+        if (estado.favoritos.isEmpty()) "nenhum fixado: o painel mostra os mais usados" else "${estado.favoritos.size} fixado(s) no painel",
+        fim = { Seta() },
+    ) { abrir(PaginasAjustes.FAVORITOS) }
     LinhaMenu(
         Icons.Outlined.MusicNote, "Player de música",
         if (estado.avisosPermitidos) "aparece quando algo toca · agora: ${estado.detalhePlayer}"
@@ -308,11 +304,11 @@ private fun PaginaPrincipal(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (
 
     SecaoMenu("Ritmo do dia")
     LinhaMenu(
-        Icons.Outlined.Schedule, "Verbos mudam com a hora", "trabalho de tarde, música com o fone, o seu costume",
+        Icons.Outlined.Schedule, "Sugestões de agora", "a fileira “Agora”: o que você costuma abrir nesta hora, mensagens e música",
         fim = { ChaveWolf(estado.ritmo, acoes.ritmo) },
     ) { acoes.ritmo(!estado.ritmo) }
     LinhaMenu(
-        Icons.Outlined.Bedtime, "Modo noite", "cor calma, só os verbos da noite e o despertador",
+        Icons.Outlined.Bedtime, "Modo noite", "cor calma e o despertador no topo",
         fim = { ChaveWolf(estado.modoNoite, acoes.modoNoite) },
     ) { acoes.modoNoite(!estado.modoNoite) }
     if (estado.modoNoite) {
@@ -343,7 +339,7 @@ private fun PaginaPrincipal(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (
     SecaoMenu("Permissões")
     LinhaMenu(
         Icons.Outlined.NotificationsNone, "Notificações",
-        "prévias nos verbos, Matilha e a música no Ouvir",
+        "números nos apps, mensagens, Matilha e o player",
         fim = { Valor(if (estado.avisosPermitidos) "ligado" else "permitir") },
         aoTocar = acoes.permitirAvisos,
     )
@@ -383,26 +379,34 @@ private fun PaginaPrincipal(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (
 }
 
 @Composable
-private fun PaginaVerbos(estado: EstadoAjustes, acoes: AcoesAjustes, voltar: () -> Unit) {
-    Cabecalho("Verbos", voltar)
+private fun PaginaFavoritos(estado: EstadoAjustes, acoes: AcoesAjustes, voltar: () -> Unit) {
+    var adicionando by remember { mutableStateOf(false) }
+    Cabecalho("Favoritos", voltar)
     Text(
-        "Toque num verbo para renomear e escolher os apps. A chave mostra ou esconde da tela inicial. " +
-            "Na tela inicial, segurar um verbo abre o mesmo menu.",
+        "Os apps fixos do painel da tela inicial (até 8). Sem nenhum fixado, o painel mostra os que você mais usa. " +
+            "Também dá para fixar segurando um app › Fixar nos favoritos.",
         color = TextoFraco, fontSize = 13.5.sp, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
     )
-    for (v in Verbo.entries) {
-        val n = estado.appsPorVerbo[v] ?: 0
-        val visivel = v !in estado.verbosEscondidos
-        LinhaMenu(
-            iconeDoVerbo(v),
-            estado.titulos[v] ?: v.titulo,
-            when {
-                n == 0 -> "nenhum app (não aparece)"
-                !visivel -> "$n app(s) · escondido"
-                else -> "$n app(s)"
-            },
-            fim = { ChaveWolf(visivel) { acoes.esconderVerbo(v, !it) } },
-        ) { acoes.editarVerbo(v) }
+    for (app in estado.favoritos) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+        ) {
+            IconeApp(app, 40.dp)
+            Text(app.nome, color = Texto, fontSize = 16.sp, modifier = Modifier.weight(1f).padding(start = 16.dp))
+            Pilula("Tirar", destaque = false) { acoes.tirarFavorito(app) }
+        }
+    }
+    if (estado.favoritos.size < 8) {
+        LinhaMenu(Icons.Outlined.Add, "Adicionar favorito", fim = { Seta() }) { adicionando = true }
+    }
+    if (adicionando) {
+        EscolherApps(
+            titulo = "Adicionar aos favoritos",
+            apps = estado.todosApps.filter { a -> estado.favoritos.none { it.chave == a.chave } },
+            aoEscolher = { acoes.adicionarFavorito(it) },
+            aoFechar = { adicionando = false },
+        )
     }
 }
 
@@ -411,7 +415,7 @@ private fun PaginaEscondidos(estado: EstadoAjustes, acoes: AcoesAjustes, voltar:
     Cabecalho("Apps escondidos", voltar)
     if (estado.appsEscondidos.isEmpty()) {
         Text(
-            "Nenhum app escondido. Para esconder, segure um app (na lista, num verbo ou na busca) › Esconder.",
+            "Nenhum app escondido. Para esconder, segure um app (no painel, na lista ou na busca) › Esconder.",
             color = TextoFraco, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
         )
     }
@@ -435,9 +439,7 @@ private fun PaginaGestos(voltar: () -> Unit) {
     LinhaMenu(Icons.Outlined.SwipeRight, "Deslizar para a direita", "seu dia: antes, agora e depois")
     LinhaMenu(Icons.Outlined.SwipeLeft, "Deslizar para a esquerda", "o painel de widgets")
     LinhaMenu(Icons.Outlined.Lock, "Tocar duas vezes", "bloqueia a tela (liga em Ajustes)")
-    LinhaMenu(Icons.Outlined.TouchApp, "Tocar num verbo", "os apps dele e quem está esperando")
-    LinhaMenu(Icons.Outlined.Category, "Segurar um verbo", "renomear, escolher os apps, esconder")
-    LinhaMenu(Icons.Outlined.Apps, "Segurar um app", "atalhos do app, verbo, renomear, esconder, desinstalar")
+    LinhaMenu(Icons.Outlined.Apps, "Segurar um app", "mensagens, atalhos, favoritos, renomear, esconder, desinstalar")
     LinhaMenu(Icons.Outlined.Home, "Segurar um espaço vazio", "o menu do launcher")
     LinhaMenu(Icons.Outlined.Search, "Barra de busca", "apps, pessoas, contas, timer, alarme, lanterna, ajustes do Android")
 }

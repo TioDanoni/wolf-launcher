@@ -56,9 +56,6 @@ import org.wolfos.launcher.dados.Matilha
 import org.wolfos.launcher.dados.Padrao
 import org.wolfos.launcher.dados.Ritmo
 import org.wolfos.launcher.dados.Uso
-import org.wolfos.launcher.dados.Verbo
-import org.wolfos.launcher.dados.agrupar
-import org.wolfos.launcher.dados.verboDe
 import org.wolfos.launcher.ui.AcoesAjustes
 import org.wolfos.launcher.ui.AcoesApp
 import org.wolfos.launcher.ui.AcoesCompromissos
@@ -66,16 +63,17 @@ import org.wolfos.launcher.ui.AcoesPlayer
 import org.wolfos.launcher.ui.CompromissosDoDia
 import org.wolfos.launcher.ui.TempoAgora
 import org.wolfos.launcher.ui.eventosDeHoje
-import org.wolfos.launcher.ui.AcoesVerbo
 import org.wolfos.launcher.ui.Player
 import org.wolfos.launcher.ui.AcoesWidgets
 import org.wolfos.launcher.ui.WidgetsTela
-import org.wolfos.launcher.ui.EditarVerbo
 import org.wolfos.launcher.ui.EstadoAjustes
 import org.wolfos.launcher.ui.PaginasAjustes
 import org.wolfos.launcher.ui.AcoesAviso
 import org.wolfos.launcher.ui.AcoesDia
 import org.wolfos.launcher.ui.AcoesMusica
+import org.wolfos.launcher.ui.PainelApps
+import org.wolfos.launcher.dados.Favoritos
+import org.wolfos.launcher.dados.Sugestoes
 import org.wolfos.launcher.ui.DiaTela
 import org.wolfos.launcher.ui.FaixaInfo
 import org.wolfos.launcher.ui.Passado
@@ -83,7 +81,6 @@ import org.wolfos.launcher.ui.agora
 import org.wolfos.launcher.ui.quandoFalta
 import org.wolfos.launcher.ui.AcoesPessoa
 import org.wolfos.launcher.ui.FileiraMatilha
-import org.wolfos.launcher.ui.Previa
 import org.wolfos.launcher.ui.AcoesComando
 import org.wolfos.launcher.ui.AcoesConversa
 import org.wolfos.launcher.ui.FileiraConversas
@@ -93,7 +90,6 @@ import org.wolfos.launcher.ui.Aurora
 import org.wolfos.launcher.ui.Comando
 import org.wolfos.launcher.ui.Gaveta
 import org.wolfos.launcher.ui.Inicio
-import org.wolfos.launcher.ui.VerboTela
 import org.wolfos.launcher.ui.WolfTema
 
 class MainActivity : ComponentActivity() {
@@ -169,7 +165,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** As telas do launcher. O verbo aberto vai junto no nome ("verbo:OUVIR"). */
+/** As telas do launcher. */
 private object Telas {
     const val INICIO = "inicio"
     const val GAVETA = "gaveta"
@@ -177,14 +173,13 @@ private object Telas {
     const val AJUSTES = "ajustes"
     const val DIA = "dia"
     const val WIDGETS = "widgets"
-    const val VERBO = "verbo:"
 }
 
 @Composable
 private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     val contexto = LocalContext.current
     val apps by vm.apps.collectAsStateWithLifecycle()
-    val escolhas by vm.escolhas.collectAsStateWithLifecycle()
+    val favoritosChaves by vm.favoritos.collectAsStateWithLifecycle()
     val atualizacao by vm.atualizacao.collectAsStateWithLifecycle()
     val instalarSozinho by vm.instalarSozinho.collectAsStateWithLifecycle()
     val contatos by vm.contatos.collectAsStateWithLifecycle()
@@ -206,11 +201,8 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     val alarme by vm.alarme.collectAsStateWithLifecycle()
     val usoMudou by vm.usoMudou.collectAsStateWithLifecycle()
     val musica by vm.musica.collectAsStateWithLifecycle()
-    val iconesNosVerbos by vm.iconesNosVerbos.collectAsStateWithLifecycle()
     val todosApps by vm.todosApps.collectAsStateWithLifecycle()
     val escondidos by vm.escondidos.collectAsStateWithLifecycle()
-    val verbosEscondidos by vm.verbosEscondidos.collectAsStateWithLifecycle()
-    val titulos by vm.titulos.collectAsStateWithLifecycle()
     val widgets by vm.widgets.collectAsStateWithLifecycle()
     val mostrarPlayer by vm.mostrarPlayer.collectAsStateWithLifecycle()
     val detalheMusica by vm.detalheMusica.collectAsStateWithLifecycle()
@@ -230,8 +222,6 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     }
     val doisToques by vm.doisToques.collectAsStateWithLifecycle()
     val bloqueioLigado by vm.bloqueioLigado.collectAsStateWithLifecycle()
-    // o verbo com o menu de editar aberto (vale para a tela inicial e para os ajustes)
-    var verboEditando by rememberSaveable { mutableStateOf<String?>(null) }
     var paginaAjustes by rememberSaveable { mutableStateOf(PaginasAjustes.PRINCIPAL) }
 
     var tela by rememberSaveable { mutableStateOf(Telas.INICIO) }
@@ -246,7 +236,6 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     // Home: volta sempre para o inicio
     LaunchedEffect(home) {
         voltarAoInicio()
-        verboEditando = null
     }
     // voltar volta para o inicio; no inicio nao faz nada (o launcher nao "sai")
     BackHandler(enabled = tela != Telas.INICIO) { voltarAoInicio() }
@@ -283,8 +272,6 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         vm.carregarDia()
     }
 
-    // todos os verbos com os apps (para os ajustes) e os que aparecem na tela inicial
-    val verbosCompletos = remember(apps, escolhas) { agrupar(apps, escolhas) }
     // adicionar widget: pedir um id, ligar (perguntando na primeira vez), configurar, guardar
     var widgetPendente by remember { mutableStateOf<Pair<Int, AppWidgetProviderInfo>?>(null) }
     val guardarOuConfigurar = { id: Int, info: AppWidgetProviderInfo ->
@@ -312,19 +299,28 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         }
     }
 
-    val todosOsVerbos = remember(verbosCompletos, verbosEscondidos) { verbosCompletos.filterKeys { it !in verbosEscondidos } }
-    // a ordem do momento: hora do dia, costume da pessoa, fone, modo noite
-    val pontos = remember(hora, usoMudou) { vm.uso.pontosDosVerbos(hora) }
-    // com musica tocando o Ouvir sobe, como com o fone
-    val tocando = musica?.tocando == true
-    val verbos = remember(todosOsVerbos, hora, pontos, fone, tocando, noite, ritmo) {
-        Ritmo.ordenar(todosOsVerbos, hora, pontos, fone || tocando, noite, ritmo)
+    // o painel: favoritos (os escolhidos, ou os mais usados) e o "Agora" (o que faz sentido ja)
+    val notasUso = remember(hora, usoMudou) { vm.uso.notas(hora) }
+    val porChaveApp = remember(apps) { apps.associateBy { it.chave } }
+    val favoritosApps = remember(favoritosChaves, porChaveApp, notasUso) {
+        favoritosChaves.mapNotNull { porChaveApp[it] }.ifEmpty { Sugestoes.favoritosPadrao(apps, notasUso) }
     }
-    val iconesDosVerbos = remember(verbos, hora, usoMudou, iconesNosVerbos) {
-        if (iconesNosVerbos) vm.uso.destaques(verbos, hora, 3) else emptyMap()
+    val avisosPorPacote = remember(avisos) { avisos.groupingBy { it.pacote }.eachCount() }
+    val agoraApps = remember(apps, notasUso, avisosPorPacote, musica?.pacote, favoritosApps, ritmo) {
+        if (!ritmo) emptyList()
+        else Sugestoes.agora(apps, notasUso, avisosPorPacote, musica?.pacote?.takeIf { musica?.tocando == true }, favoritosApps.map { it.chave }.toSet())
     }
-    val previas = remember(avisos, apps, escolhas) { previasDosVerbos(avisos, apps, escolhas) }
     val pessoas = remember(contatos, matilhaIds) { Matilha.pessoas(contatos, matilhaIds) }
+    val acoesAviso = AcoesAviso(
+        abrir = { a ->
+            val app = apps.firstOrNull { it.pacote == a.pacote }
+            if (Avisos.abrir(contexto, a) || (app != null && Apps.abrir(contexto, app))) voltarAoInicio()
+        },
+        dispensar = Avisos::dispensar,
+        permitir = { Avisos.pedirPermissao(contexto) },
+        responder = { a, texto -> Avisos.responder(contexto, a, texto) },
+        marcarLida = { Avisos.marcarComoLida(it) },
+    )
     val acoesApp = AcoesApp(
         abrir = { app ->
             if (Apps.abrir(contexto, app)) {
@@ -332,23 +328,24 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                 voltarAoInicio()
             }
         },
-        verboDe = { verboDe(it, escolhas) },
-        mudarVerbo = vm::mudarVerbo,
         informacoes = { Apps.informacoes(contexto, it) },
         desinstalar = { Apps.desinstalar(contexto, it) },
         renomear = vm::renomear,
         esconder = { vm.esconder(it) },
         abrirAtalho = { if (Atalhos.abrir(contexto, it)) voltarAoInicio() },
-        tituloDoVerbo = { titulos[it] ?: it.titulo },
+        ehFavorito = { it.chave in favoritosChaves },
+        alternarFavorito = { app ->
+            // o primeiro fixado vira a lista (os mais usados eram so um comeco)
+            vm.alternarFavorito(app)
+        },
+        avisosDe = { app -> avisos.filter { it.pacote == app.pacote } },
+        acoesAviso = acoesAviso,
     )
     val acoesInicio = AcoesInicio(
-        abrirVerbo = { tela = Telas.VERBO + it.name },
         abrirComando = { texto -> comando = texto; tela = Telas.COMANDO },
         abrirGaveta = { tela = Telas.GAVETA },
         abrirNotificacoes = { Apps.abrirNotificacoes(contexto) },
         abrirAjustes = { paginaAjustes = PaginasAjustes.PRINCIPAL; tela = Telas.AJUSTES },
-        editarVerbo = { verboEditando = it.name },
-        ajustesDosVerbos = { paginaAjustes = PaginasAjustes.VERBOS; tela = Telas.AJUSTES },
         abrirWidgets = { tela = Telas.WIDGETS },
         bloquear = if (doisToques) ({ Bloqueio.bloquear() }) else null,
         ligarBloqueio = { Bloqueio.pedirPermissao(contexto) },
@@ -388,16 +385,6 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         permitirAgenda = { pedidoAgenda.launch(Manifest.permission.READ_CALENDAR) },
         buscar = { tela = Telas.COMANDO },
         voltar = voltarAoInicio,
-    )
-    val acoesAviso = AcoesAviso(
-        abrir = { a ->
-            val app = apps.firstOrNull { it.pacote == a.pacote }
-            if (Avisos.abrir(contexto, a) || (app != null && Apps.abrir(contexto, app))) voltarAoInicio()
-        },
-        dispensar = Avisos::dispensar,
-        permitir = { Avisos.pedirPermissao(contexto) },
-        responder = { a, texto -> Avisos.responder(contexto, a, texto) },
-        marcarLida = { Avisos.marcarComoLida(it) },
     )
     val acoesPessoa = AcoesPessoa(
         ligar = { Contatos.ligar(contexto, it) },
@@ -468,8 +455,17 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         ) { atual ->
             when {
                 atual == Telas.INICIO -> Inicio(
-                    apps, verbos, atualizacao, ehPadrao, previas, faixaAgora, noite,
-                    iconesDosVerbos, titulos, musica, acoesMusica, acoesInicio,
+                    atualizacao, ehPadrao, faixaAgora, noite, acoesInicio,
+                    painel = {
+                        PainelApps(
+                            agora = agoraApps,
+                            favoritos = favoritosApps,
+                            escolhidos = favoritosChaves.isNotEmpty(),
+                            avisos = avisosPorPacote,
+                            acoes = acoesApp,
+                            aoAdicionar = { paginaAjustes = PaginasAjustes.FAVORITOS; tela = Telas.AJUSTES },
+                        )
+                    },
                     clima = clima,
                     estiloRelogio = estiloRelogio,
                     tempo = previsao?.takeIf { tempoLigado }?.let { p ->
@@ -567,7 +563,6 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         matilhaPeloWhatsapp = fonteMatilha != FonteMatilha.AGENDA && conversas.isNotEmpty(),
                         fonteMatilha = fonteMatilha,
                         fontesMatilha = vm.fontesMatilha,
-                        iconesNosVerbos = iconesNosVerbos,
                         mostrarPlayer = mostrarPlayer,
                         detalhePlayer = detalheMusica,
                         tempoLigado = tempoLigado,
@@ -582,9 +577,8 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         janelaNoite = janelaNoite,
                         doisToques = doisToques,
                         bloqueioLigado = bloqueioLigado,
-                        appsPorVerbo = verbosCompletos.mapValues { it.value.size },
-                        titulos = titulos,
-                        verbosEscondidos = verbosEscondidos,
+                        favoritos = favoritosChaves.mapNotNull { porChaveApp[it] },
+                        todosApps = apps,
                         appsEscondidos = todosApps.filter { it.chave in escondidos },
                     ),
                     AcoesAjustes(
@@ -606,7 +600,6 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         mostrarMatilha = vm::definirMostrarMatilha,
                         tipoMatilha = vm::definirTipoMatilha,
                         fonteMatilha = vm::definirFonteMatilha,
-                        iconesNosVerbos = vm::definirIconesNosVerbos,
                         mostrarPlayer = vm::definirMostrarPlayer,
                         tempoLigado = vm::definirTempoLigado,
                         escolherCidade = vm::definirCidade,
@@ -618,58 +611,22 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         ritmo = vm::definirRitmo,
                         modoNoite = vm::definirModoNoite,
                         janelaNoite = vm::definirJanelaNoite,
-                        editarVerbo = { verboEditando = it.name },
+                        adicionarFavorito = vm::adicionarFavorito,
+                        tirarFavorito = vm::alternarFavorito,
                         doisToques = vm::definirDoisToques,
                         ligarBloqueio = { Bloqueio.pedirPermissao(contexto) },
-                        esconderVerbo = vm::esconderVerbo,
                         mostrarApp = { vm.esconder(it, false) },
                         abrirCodigo = { Apps.abrirTela(contexto, Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/TioDanoni/wolf-launcher"))) },
                     ),
                     paginaInicial = paginaAjustes,
                 )
-                atual.startsWith(Telas.VERBO) -> {
-                    val verbo = Verbo.entries.firstOrNull { it.name == atual.removePrefix(Telas.VERBO) }
-                    val lista = verbo?.let { verbos[it] }.orEmpty()
-                    if (verbo != null) VerboTela(verbo, titulos[verbo] ?: verbo.titulo, lista, avisos, avisosPermitidos, acoesApp, acoesAviso, voltarAoInicio)
-                }
                 else -> Unit
             }
         }
 
-        // o menu de editar um verbo (segurar na tela inicial, ou tocar nos ajustes)
-        verboEditando?.let { nome -> Verbo.entries.firstOrNull { it.name == nome } }?.let { v ->
-            EditarVerbo(
-                verbo = v,
-                titulo = titulos[v] ?: v.titulo,
-                apps = verbosCompletos[v].orEmpty(),
-                todos = apps,
-                escondido = v in verbosEscondidos,
-                acoes = AcoesVerbo(
-                    renomear = vm::renomearVerbo,
-                    esconder = vm::esconderVerbo,
-                    mudarVerbo = vm::mudarVerbo,
-                ),
-                aoFechar = { verboEditando = null },
-            )
-        }
     }
 }
 
-/** Para cada verbo, a notificacao mais nova dos apps dele e quantas tem. */
-private fun previasDosVerbos(avisos: List<Aviso>, apps: List<AppInfo>, escolhas: Map<String, String>): Map<Verbo, Previa> {
-    if (avisos.isEmpty()) return emptyMap()
-    val verboDoPacote = HashMap<String, Verbo>()
-    for (app in apps) verboDe(app, escolhas)?.let { verboDoPacote.putIfAbsent(app.pacote, it) }
-    return avisos
-        .groupBy { verboDoPacote[it.pacote] }
-        .mapNotNull { (verbo, lista) ->
-            if (verbo == null) return@mapNotNull null
-            val a = lista.first()
-            val texto = if (a.titulo.isNotEmpty() && a.texto.isNotEmpty()) "${a.titulo}: ${a.texto}" else a.titulo + a.texto
-            verbo to Previa(texto, lista.size)
-        }
-        .toMap()
-}
 
 /**
  * A faixa do agora na tela inicial: a noite, o despertador; de dia, o proximo

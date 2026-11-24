@@ -77,16 +77,6 @@ fun WolfTema(noite: Boolean = false, paleta: Paleta = Paleta.LOBO, conteudo: @Co
     )
 }
 
-/** As cores de cada verbo (para a tela nao ficar toda branca). */
-fun corDoVerbo(v: org.wolfos.launcher.dados.Verbo): Color = when (v) {
-    org.wolfos.launcher.dados.Verbo.OUVIR -> Color(0xFFFF6B9A)
-    org.wolfos.launcher.dados.Verbo.VER -> Color(0xFFF5B342)
-    org.wolfos.launcher.dados.Verbo.CONVERSAR -> Color(0xFF3DD6B5)
-    org.wolfos.launcher.dados.Verbo.TRABALHAR -> Color(0xFF5B9BFF)
-    org.wolfos.launcher.dados.Verbo.IR -> Color(0xFF7BD88F)
-    org.wolfos.launcher.dados.Verbo.CRIAR -> Color(0xFFB98CFF)
-    org.wolfos.launcher.dados.Verbo.JOGAR -> Color(0xFFFF6B6B)
-}
 
 /**
  * O fundo: o wallpaper do celular escurecido e dois brilhos da cor de destaque (a
@@ -103,7 +93,7 @@ fun Aurora(acento: Color, escuro: Float, segunda: Color = Color(0xFF4C8DFF), mod
     }
     Canvas(modifier.fillMaxSize()) {
         if (degrade) {
-            // na tela inicial o wallpaper aparece em cima e escurece embaixo, onde ficam os verbos
+            // na tela inicial o wallpaper aparece em cima e escurece embaixo, onde ficam os apps
             drawRect(
                 Brush.verticalGradient(
                     0f to Fundo.copy(alpha = escuro * 0.3f),

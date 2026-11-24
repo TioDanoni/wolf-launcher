@@ -11,11 +11,6 @@ class Preferencias(contexto: Context) {
         get() = prefs.getBoolean("instalar_sozinho", true)
         set(v) = prefs.edit().putBoolean("instalar_sozinho", v).apply()
 
-    /** Os icones dos apps mais usados ao lado de cada verbo. */
-    var iconesNosVerbos: Boolean
-        get() = prefs.getBoolean("icones_nos_verbos", true)
-        set(v) = prefs.edit().putBoolean("icones_nos_verbos", v).apply()
-
     /** Tocar duas vezes num espaco vazio bloqueia a tela. */
     var doisToques: Boolean
         get() = prefs.getBoolean("dois_toques", true)
@@ -51,10 +46,10 @@ class Preferencias(contexto: Context) {
         get() = prefs.getBoolean("mostrar_matilha", true)
         set(v) = prefs.edit().putBoolean("mostrar_matilha", v).apply()
 
-    /** Os verbos mudam de ordem com a hora (e com o fone conectado). */
-    var ritmo: Boolean
-        get() = prefs.getBoolean("ritmo", true)
-        set(v) = prefs.edit().putBoolean("ritmo", v).apply()
+    /** A fileira "Agora" do painel de apps (sugestoes pela hora e pelo uso). */
+    var sugestoes: Boolean
+        get() = prefs.getBoolean("sugestoes", true)
+        set(v) = prefs.edit().putBoolean("sugestoes", v).apply()
 
     var modoNoite: Boolean
         get() = prefs.getBoolean("modo_noite", true)

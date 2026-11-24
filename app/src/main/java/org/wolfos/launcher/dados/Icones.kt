@@ -12,6 +12,7 @@ import android.graphics.drawable.AdaptiveIconDrawable
 import android.os.Build
 import android.util.LruCache
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.Dispatchers
@@ -67,6 +68,22 @@ object Icones {
                 bmp.asImageBitmap()
             }.getOrNull()
         }?.also { cache.put("m:" + app.chave, it) }
+    }
+
+    private val cores = LruCache<String, Int>(300)
+
+    fun corDaMemoria(app: AppInfo): Int? = cores.get(app.chave)
+
+    /** A cor que mais marca o icone (a viva; senao a dominante), para a aura atras dele. */
+    suspend fun cor(contexto: Context, app: AppInfo): Int? {
+        cores.get(app.chave)?.let { return it }
+        val icone = carregar(contexto, app) ?: return null
+        return withContext(Dispatchers.Default) {
+            runCatching {
+                val p = androidx.palette.graphics.Palette.from(icone.asAndroidBitmap()).maximumColorCount(12).generate()
+                (p.vibrantSwatch ?: p.lightVibrantSwatch ?: p.dominantSwatch)?.rgb
+            }.getOrNull()
+        }?.also { cores.put(app.chave, it) }
     }
 
     /** O app foi atualizado ou removido: o icone pode ter mudado. */

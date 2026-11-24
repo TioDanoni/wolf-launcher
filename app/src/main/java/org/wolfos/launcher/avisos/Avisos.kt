@@ -39,7 +39,7 @@ data class Aviso(
 data class Clima(val cidade: String, val graus: Int, val descricao: String)
 
 /**
- * As notificacoes que estao na cortina, para o launcher mostrar junto dos verbos e da
+ * As notificacoes que estao na cortina, para o launcher mostrar nos apps e na
  * Matilha. Quem preenche e o [Ouvinte], que o Android liga quando a pessoa permite.
  */
 object Avisos {

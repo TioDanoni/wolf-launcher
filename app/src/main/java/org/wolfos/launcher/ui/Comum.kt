@@ -136,7 +136,7 @@ fun MarcaUivo() {
     ) { Text("◗", color = Fundo, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
 }
 
-/** Coluna com o titulo grande de uma tela (verbo, ajustes) e o botao de fechar. */
+/** Coluna com o titulo grande de uma tela (ajustes, widgets) e o botao de fechar. */
 @Composable
 fun Cabecalho(titulo: String, aoFechar: () -> Unit) {
     Row(

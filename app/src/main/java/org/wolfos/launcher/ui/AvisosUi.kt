@@ -49,7 +49,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.wolfos.launcher.avisos.Aviso
 import org.wolfos.launcher.dados.AppInfo
-import org.wolfos.launcher.dados.Verbo
 
 /** O que da para fazer com uma notificacao mostrada pelo launcher. */
 class AcoesAviso(
@@ -61,54 +60,9 @@ class AcoesAviso(
     val marcarLida: (Aviso) -> Unit = {},
 )
 
-/**
- * Tocou num verbo: em cima, quem esta esperando (as notificacoes dos apps do verbo);
- * embaixo, os apps em grade, com o numero de notificacoes. Segurar um app muda o verbo.
- */
+/** Uma mensagem esperando: abrir, dispensar, responder ali mesmo e marcar como lida. */
 @Composable
-fun VerboTela(
-    verbo: Verbo,
-    titulo: String,
-    apps: List<AppInfo>,
-    avisos: List<Aviso>,
-    avisosPermitidos: Boolean,
-    acoes: AcoesApp,
-    acoesAviso: AcoesAviso,
-    aoFechar: () -> Unit,
-) {
-    val pacotes = remember(apps) { apps.map { it.pacote }.toSet() }
-    val doVerbo = remember(avisos, pacotes) { avisos.filter { it.pacote in pacotes } }
-    val contagem = remember(doVerbo) { doVerbo.groupingBy { it.pacote }.eachCount() }
-    val nomes = remember(apps) { apps.associate { it.pacote to it.nome } }
-    val linha = GridItemSpan(3)
-
-    Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-        Cabecalho(titulo, aoFechar)
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(3),
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            if (doVerbo.isNotEmpty()) {
-                item(span = { linha }) { Rotulo("Quem está esperando", Modifier.padding(start = 14.dp, top = 8.dp, bottom = 8.dp)) }
-                items(doVerbo.take(8), key = { "aviso:" + it.chave }, span = { linha }) { a ->
-                    CartaoAviso(a, nomes[a.pacote], acoesAviso)
-                }
-            } else if (!avisosPermitidos && verbo in setOf(Verbo.CONVERSAR, Verbo.TRABALHAR)) {
-                item(span = { linha }) {
-                    Faixa("☺", "Ver aqui quem está esperando resposta", "Permitir", acoesAviso.permitir, Modifier.padding(4.dp))
-                }
-            }
-            item(span = { linha }) {
-                Rotulo("Apps para ${titulo.lowercase()}", Modifier.padding(start = 14.dp, top = 16.dp, bottom = 4.dp))
-            }
-            items(apps, key = { it.chave }) { app -> AppNaGrade(app, contagem[app.pacote] ?: 0, acoes) }
-        }
-    }
-}
-
-@Composable
-private fun CartaoAviso(aviso: Aviso, app: String?, acoes: AcoesAviso) {
+fun CartaoAviso(aviso: Aviso, app: String?, acoes: AcoesAviso) {
     val cor = MaterialTheme.colorScheme.primary
     val forma = RoundedCornerShape(22.dp)
     var respondendo by remember(aviso.chave) { mutableStateOf(false) }
@@ -214,38 +168,6 @@ private fun haQuanto(quando: Long): String {
     val passou = System.currentTimeMillis() - quando
     return if (passou < DateUtils.MINUTE_IN_MILLIS) "agora"
     else DateUtils.getRelativeTimeSpanString(quando, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_ABBREV_RELATIVE).toString()
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun AppNaGrade(app: AppInfo, avisos: Int, acoes: AcoesApp) {
-    var menu by remember(app.chave) { mutableStateOf(false) }
-    Box {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(18.dp))
-                .combinedClickable(onClick = { acoes.abrir(app) }, onLongClick = { menu = true })
-                .padding(vertical = 14.dp, horizontal = 4.dp),
-        ) {
-            Box {
-                IconeApp(app, 52.dp)
-                if (avisos > 0) Selo(avisos, Modifier.align(Alignment.TopEnd).offset(x = 6.dp, y = (-4).dp))
-            }
-            Text(
-                app.nome,
-                color = Texto.copy(alpha = 0.85f),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-        }
-        MenuApp(app, menu, { menu = false }, acoes)
-    }
 }
 
 /** O numero de notificacoes em cima do icone. */

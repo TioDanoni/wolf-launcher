@@ -39,7 +39,7 @@ import org.wolfos.launcher.dados.FonteMatilha
 import org.wolfos.launcher.dados.TipoMatilha
 import org.wolfos.launcher.dados.UsoConversa
 import org.wolfos.launcher.dados.UsoConversas
-import org.wolfos.launcher.dados.EscolhasVerbo
+import org.wolfos.launcher.dados.Favoritos
 import org.wolfos.launcher.dados.Icones
 import org.wolfos.launcher.dados.Matilha
 import org.wolfos.launcher.dados.Cidade
@@ -49,7 +49,6 @@ import org.wolfos.launcher.ui.Paleta
 import org.wolfos.launcher.dados.Previsao
 import org.wolfos.launcher.dados.Tempo
 import org.wolfos.launcher.dados.Personalizacao
-import org.wolfos.launcher.dados.Verbo
 import org.wolfos.launcher.dados.WidgetSalvo
 import org.wolfos.launcher.dados.Widgets
 import org.wolfos.launcher.bloqueio.Bloqueio
@@ -58,9 +57,8 @@ import org.wolfos.launcher.dados.Preferencias
 import org.wolfos.launcher.dados.Ritmo
 import org.wolfos.launcher.dados.Uso
 
-/** Estado do launcher: os apps (lidos fora da tela), as escolhas de verbo e a atualizacao. */
+/** Estado do launcher: os apps (lidos fora da tela), os favoritos e a atualizacao. */
 class LauncherViewModel(app: Application) : AndroidViewModel(app) {
-    private val escolhasArq = EscolhasVerbo(app)
     val preferencias = Preferencias(app)
 
     // ---- os apps: como o Android entrega, com os nomes trocados, e sem os escondidos
@@ -81,11 +79,6 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         if (esc.isEmpty()) todos else todos.filter { it.chave !in esc }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    private val _verbosEscondidos = MutableStateFlow(personal.verbosEscondidos())
-    val verbosEscondidos: StateFlow<Set<Verbo>> = _verbosEscondidos.asStateFlow()
-
-    private val _titulos = MutableStateFlow(personal.titulos())
-    val titulos: StateFlow<Map<Verbo, String>> = _titulos.asStateFlow()
 
     fun renomear(app: AppInfo, nome: String?) {
         // voltar ao nome original e o mesmo que tirar o nome escolhido
@@ -98,23 +91,31 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         _escondidos.value = personal.escondidos()
     }
 
-    fun esconderVerbo(v: Verbo, esconder: Boolean) {
-        personal.esconderVerbo(v, esconder)
-        _verbosEscondidos.value = personal.verbosEscondidos()
+
+    // ---- os favoritos do painel (vazio: o launcher usa os mais abertos)
+    private val favoritosArq = Favoritos(app)
+    private val _favoritos = MutableStateFlow(favoritosArq.ler())
+    val favoritos: StateFlow<List<String>> = _favoritos.asStateFlow()
+
+    fun alternarFavorito(app: AppInfo) {
+        val atual = _favoritos.value
+        definirFavoritos(if (app.chave in atual) atual - app.chave else atual + app.chave)
     }
 
-    fun renomearVerbo(v: Verbo, titulo: String?) {
-        personal.renomearVerbo(v, titulo)
-        _titulos.value = personal.titulos()
+    fun adicionarFavorito(app: AppInfo) {
+        if (app.chave !in _favoritos.value) definirFavoritos(_favoritos.value + app.chave)
     }
 
-    private val _escolhas = MutableStateFlow(escolhasArq.ler())
-    val escolhas: StateFlow<Map<String, String>> = _escolhas.asStateFlow()
+    private fun definirFavoritos(lista: List<String>) {
+        favoritosArq.gravar(lista)
+        _favoritos.value = favoritosArq.ler()
+    }
 
     /** O que a pessoa abre e a que horas (so no celular). */
     val uso = Uso(app)
 
-    private val _ritmo = MutableStateFlow(preferencias.ritmo)
+    /** A fileira "Agora" do painel (sugestoes pela hora, mensagens e musica). */
+    private val _ritmo = MutableStateFlow(preferencias.sugestoes)
     val ritmo: StateFlow<Boolean> = _ritmo.asStateFlow()
 
     private val _modoNoite = MutableStateFlow(preferencias.modoNoite)
@@ -135,21 +136,13 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     private val _alarme = MutableStateFlow<Long?>(null)
     val alarme: StateFlow<Long?> = _alarme.asStateFlow()
 
-    /** Conta quantas vezes o uso mudou (para os verbos reordenarem). */
+    /** Conta quantas vezes o uso mudou (para as sugestoes se refazerem). */
     private val _usoMudou = MutableStateFlow(0)
     val usoMudou: StateFlow<Int> = _usoMudou.asStateFlow()
 
     val musica: StateFlow<Musica?> = Tocando.musica
     val detalheMusica: StateFlow<String> = Tocando.detalhe
     val clima: StateFlow<org.wolfos.launcher.avisos.Clima?> = Avisos.clima
-
-    private val _iconesNosVerbos = MutableStateFlow(preferencias.iconesNosVerbos)
-    val iconesNosVerbos: StateFlow<Boolean> = _iconesNosVerbos.asStateFlow()
-
-    fun definirIconesNosVerbos(valor: Boolean) {
-        preferencias.iconesNosVerbos = valor
-        _iconesNosVerbos.value = valor
-    }
 
     // ---- widgets do painel e o bloqueio com dois toques
     private val _widgets = MutableStateFlow(Widgets.ler(app))
@@ -419,12 +412,12 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun registrarAbertura(app: AppInfo) {
-        uso.registrar(app, org.wolfos.launcher.dados.verboDe(app, _escolhas.value))
+        uso.registrar(app)
         _usoMudou.value++
     }
 
     fun definirRitmo(valor: Boolean) {
-        preferencias.ritmo = valor
+        preferencias.sugestoes = valor
         _ritmo.value = valor
     }
 
@@ -453,11 +446,6 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     private fun definirMatilha(ids: List<Long>) {
         matilhaArq.gravar(ids)
         _matilha.value = ids
-    }
-
-    fun mudarVerbo(app: AppInfo, verbo: Verbo?) {
-        escolhasArq.gravar(app.chave, verbo)
-        _escolhas.value = escolhasArq.ler()
     }
 
     /** O launcher voltou para a tela: procura versao nova se faz tempo que nao procura. */
