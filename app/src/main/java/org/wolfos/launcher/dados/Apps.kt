@@ -106,8 +106,15 @@ object Apps {
         abrirTela(contexto, Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${app.pacote}")))
     }
 
+    /**
+     * A pergunta do Android "Desinstalar este app?" (precisa da permissao
+     * REQUEST_DELETE_PACKAGES do Android 9 em diante). Se nao abrir (app do sistema, ou o
+     * aparelho nao deixa), abre as informacoes do app, onde fica o botao de desinstalar.
+     */
     fun desinstalar(contexto: Context, app: AppInfo) {
-        abrirTela(contexto, Intent(Intent.ACTION_DELETE, Uri.parse("package:${app.pacote}")))
+        val pedido = Intent(Intent.ACTION_DELETE, Uri.parse("package:${app.pacote}"))
+            .putExtra(Intent.EXTRA_RETURN_RESULT, false)
+        if (!abrirTela(contexto, pedido)) informacoes(contexto, app)
     }
 
     fun buscarNaWeb(contexto: Context, termo: String) {
