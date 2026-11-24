@@ -28,6 +28,10 @@ data class Aviso(
     val abrir: PendingIntent?,
     /** O atalho de conversa da notificacao (Android 10+): liga a notificacao a conversa certa. */
     val atalho: String? = null,
+    /** A acao "Responder" do proprio app (com campo de texto), se tiver. */
+    val responder: Notification.Action? = null,
+    /** A acao "Marcar como lida", se tiver. */
+    val marcarLida: Notification.Action? = null,
 )
 
 /**
@@ -75,6 +79,28 @@ object Avisos {
         }.isSuccess
     }
 
+    /** A acao com campo de texto livre (a de responder). */
+    private fun acaoDeResponder(n: Notification): Notification.Action? {
+        val comTexto = n.actions.orEmpty().filter { a -> a.remoteInputs?.any { it.allowFreeFormInput } == true }
+        return comTexto.firstOrNull { a ->
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && a.semanticAction == Notification.Action.SEMANTIC_ACTION_REPLY
+        } ?: comTexto.firstOrNull()
+    }
+
+    /** Responde pela propria notificacao, como o "Responder" da cortina. */
+    fun responder(contexto: Context, aviso: Aviso, texto: String): Boolean {
+        val acao = aviso.responder ?: return false
+        val entradas = acao.remoteInputs ?: return false
+        return runCatching {
+            val resultado = Intent()
+            val valores = android.os.Bundle().apply { entradas.forEach { putCharSequence(it.resultKey, texto) } }
+            android.app.RemoteInput.addResultsToIntent(entradas, resultado, valores)
+            acao.actionIntent.send(contexto, 0, resultado)
+        }.isSuccess
+    }
+
+    fun marcarComoLida(aviso: Aviso): Boolean = runCatching { aviso.marcarLida?.actionIntent?.send() }.isSuccess
+
     /** Tira a notificacao da cortina (como deslizar ela para o lado). */
     fun dispensar(aviso: Aviso) {
         runCatching { ouvinte?.cancelNotification(aviso.chave) }
@@ -118,6 +144,10 @@ object Avisos {
             quando = sbn.notification.`when`.takeIf { it > 0 } ?: sbn.postTime,
             abrir = sbn.notification.contentIntent,
             atalho = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) sbn.notification.shortcutId else null,
+            responder = acaoDeResponder(sbn.notification),
+            marcarLida = sbn.notification.actions?.firstOrNull { a ->
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && a.semanticAction == Notification.Action.SEMANTIC_ACTION_MARK_AS_READ
+            },
         )
     }
 }

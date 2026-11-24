@@ -42,6 +42,9 @@ import org.wolfos.launcher.dados.Matilha
 import org.wolfos.launcher.dados.Padrao
 import org.wolfos.launcher.dados.Personalizacao
 import org.wolfos.launcher.dados.Verbo
+import org.wolfos.launcher.dados.WidgetSalvo
+import org.wolfos.launcher.dados.Widgets
+import org.wolfos.launcher.bloqueio.Bloqueio
 import org.wolfos.launcher.dados.Evento
 import org.wolfos.launcher.dados.Preferencias
 import org.wolfos.launcher.dados.Ritmo
@@ -136,6 +139,36 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     fun definirIconesNosVerbos(valor: Boolean) {
         preferencias.iconesNosVerbos = valor
         _iconesNosVerbos.value = valor
+    }
+
+    // ---- widgets do painel e o bloqueio com dois toques
+    private val _widgets = MutableStateFlow(Widgets.ler(app))
+    val widgets: StateFlow<List<WidgetSalvo>> = _widgets.asStateFlow()
+
+    fun adicionarWidget(id: Int, altura: Int) = definirWidgets(_widgets.value + WidgetSalvo(id, altura))
+
+    fun removerWidget(id: Int) {
+        Widgets.apagar(getApplication(), id)
+        definirWidgets(_widgets.value.filter { it.id != id })
+    }
+
+    fun mudarAlturaWidget(id: Int, delta: Int) =
+        definirWidgets(_widgets.value.map { if (it.id == id) it.copy(altura = (it.altura + delta).coerceIn(80, 640)) else it })
+
+    private fun definirWidgets(lista: List<WidgetSalvo>) {
+        Widgets.gravar(getApplication(), lista)
+        _widgets.value = lista
+    }
+
+    private val _doisToques = MutableStateFlow(preferencias.doisToques)
+    val doisToques: StateFlow<Boolean> = _doisToques.asStateFlow()
+
+    private val _bloqueioLigado = MutableStateFlow(Bloqueio.ligado(app))
+    val bloqueioLigado: StateFlow<Boolean> = _bloqueioLigado.asStateFlow()
+
+    fun definirDoisToques(valor: Boolean) {
+        preferencias.doisToques = valor
+        _doisToques.value = valor
     }
 
     private val _mostrarMatilha = MutableStateFlow(preferencias.mostrarMatilha)
@@ -307,6 +340,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     fun aoVoltar() {
         _ehPadrao.value = Padrao.ehPadrao(getApplication())
         _avisosPermitidos.value = Avisos.permitido(getApplication())
+        _bloqueioLigado.value = Bloqueio.ligado(getApplication())
         if (_avisosPermitidos.value) Tocando.iniciar(getApplication())
         // a agenda pode ter mudado (ou a permissao chegado) enquanto estava fora
         carregarContatos()

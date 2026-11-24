@@ -16,6 +16,11 @@ class Preferencias(contexto: Context) {
         get() = prefs.getBoolean("icones_nos_verbos", true)
         set(v) = prefs.edit().putBoolean("icones_nos_verbos", v).apply()
 
+    /** Tocar duas vezes num espaco vazio bloqueia a tela. */
+    var doisToques: Boolean
+        get() = prefs.getBoolean("dois_toques", true)
+        set(v) = prefs.edit().putBoolean("dois_toques", v).apply()
+
     /** A fileira da Matilha na tela inicial. */
     var mostrarMatilha: Boolean
         get() = prefs.getBoolean("mostrar_matilha", true)

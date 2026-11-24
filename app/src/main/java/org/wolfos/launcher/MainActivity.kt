@@ -1,6 +1,7 @@
 package org.wolfos.launcher
 
 import android.Manifest
+import android.appwidget.AppWidgetProviderInfo
 import android.content.Intent
 import android.net.Uri
 import android.provider.AlarmClock
@@ -41,7 +42,9 @@ import org.wolfos.launcher.avisos.Avisos
 import org.wolfos.launcher.avisos.Tocando
 import org.wolfos.launcher.dados.Agenda
 import org.wolfos.launcher.dados.AppInfo
+import org.wolfos.launcher.bloqueio.Bloqueio
 import org.wolfos.launcher.dados.Apps
+import org.wolfos.launcher.dados.Widgets
 import org.wolfos.launcher.dados.Atalhos
 import org.wolfos.launcher.dados.Contatos
 import org.wolfos.launcher.dados.Conversas
@@ -56,6 +59,8 @@ import org.wolfos.launcher.dados.verboDe
 import org.wolfos.launcher.ui.AcoesAjustes
 import org.wolfos.launcher.ui.AcoesApp
 import org.wolfos.launcher.ui.AcoesVerbo
+import org.wolfos.launcher.ui.AcoesWidgets
+import org.wolfos.launcher.ui.WidgetsTela
 import org.wolfos.launcher.ui.EditarVerbo
 import org.wolfos.launcher.ui.EstadoAjustes
 import org.wolfos.launcher.ui.PaginasAjustes
@@ -110,6 +115,48 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         vm.aoVoltar()
     }
+
+    // os widgets so se atualizam enquanto o launcher esta visivel (poupa bateria)
+    override fun onStart() {
+        super.onStart()
+        runCatching { Widgets.anfitriao(this).startListening() }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        runCatching { Widgets.anfitriao(this).stopListening() }
+    }
+
+    /** O que fazer quando a tela de configurar um widget fechar (ok ou cancelou). */
+    private var aoConfigurar: ((Boolean) -> Unit)? = null
+
+    /** Abre a tela de configurar do widget (se ele tiver); o retorno chega em [aoConfigurar]. */
+    fun configurarWidget(id: Int, depois: (Boolean) -> Unit) {
+        aoConfigurar = depois
+        val deu = runCatching {
+            Widgets.anfitriao(this).startAppWidgetConfigureActivityForResult(this, id, 0, PEDIDO_CONFIGURAR, null)
+        }.isSuccess
+        // sem como abrir a configuracao: fica com o widget como esta
+        if (!deu) {
+            aoConfigurar = null
+            depois(true)
+        }
+    }
+
+    @Deprecated("O AppWidgetHost so entrega o resultado por aqui")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == PEDIDO_CONFIGURAR) {
+            aoConfigurar?.invoke(resultCode == RESULT_OK)
+            aoConfigurar = null
+        } else {
+            @Suppress("DEPRECATION")
+            super.onActivityResult(requestCode, resultCode, data)
+        }
+    }
+
+    private companion object {
+        const val PEDIDO_CONFIGURAR = 7001
+    }
 }
 
 /** As telas do launcher. O verbo aberto vai junto no nome ("verbo:OUVIR"). */
@@ -119,6 +166,7 @@ private object Telas {
     const val COMANDO = "comando"
     const val AJUSTES = "ajustes"
     const val DIA = "dia"
+    const val WIDGETS = "widgets"
     const val VERBO = "verbo:"
 }
 
@@ -153,6 +201,9 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     val escondidos by vm.escondidos.collectAsStateWithLifecycle()
     val verbosEscondidos by vm.verbosEscondidos.collectAsStateWithLifecycle()
     val titulos by vm.titulos.collectAsStateWithLifecycle()
+    val widgets by vm.widgets.collectAsStateWithLifecycle()
+    val doisToques by vm.doisToques.collectAsStateWithLifecycle()
+    val bloqueioLigado by vm.bloqueioLigado.collectAsStateWithLifecycle()
     // o verbo com o menu de editar aberto (vale para a tela inicial e para os ajustes)
     var verboEditando by rememberSaveable { mutableStateOf<String?>(null) }
     var paginaAjustes by rememberSaveable { mutableStateOf(PaginasAjustes.PRINCIPAL) }
@@ -208,6 +259,33 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
 
     // todos os verbos com os apps (para os ajustes) e os que aparecem na tela inicial
     val verbosCompletos = remember(apps, escolhas) { agrupar(apps, escolhas) }
+    // adicionar widget: pedir um id, ligar (perguntando na primeira vez), configurar, guardar
+    var widgetPendente by remember { mutableStateOf<Pair<Int, AppWidgetProviderInfo>?>(null) }
+    val guardarOuConfigurar = { id: Int, info: AppWidgetProviderInfo ->
+        val altura = Widgets.alturaInicial(contexto, info)
+        if (info.configure != null) {
+            (contexto as? MainActivity)?.configurarWidget(id) { ok -> if (ok) vm.adicionarWidget(id, altura) else Widgets.apagar(contexto, id) }
+                ?: vm.adicionarWidget(id, altura)
+        } else {
+            vm.adicionarWidget(id, altura)
+        }
+    }
+    val pedidoWidget = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        widgetPendente?.let { (id, info) ->
+            if (r.resultCode == android.app.Activity.RESULT_OK) guardarOuConfigurar(id, info) else Widgets.apagar(contexto, id)
+        }
+        widgetPendente = null
+    }
+    val adicionarWidget = { info: AppWidgetProviderInfo ->
+        val id = Widgets.novoId(contexto)
+        if (Widgets.ligar(contexto, id, info)) {
+            guardarOuConfigurar(id, info)
+        } else {
+            widgetPendente = id to info
+            pedidoWidget.launch(Widgets.pedidoParaLigar(id, info))
+        }
+    }
+
     val todosOsVerbos = remember(verbosCompletos, verbosEscondidos) { verbosCompletos.filterKeys { it !in verbosEscondidos } }
     // a ordem do momento: hora do dia, costume da pessoa, fone, modo noite
     val pontos = remember(hora, usoMudou) { vm.uso.pontosDosVerbos(hora) }
@@ -245,6 +323,9 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         abrirAjustes = { paginaAjustes = PaginasAjustes.PRINCIPAL; tela = Telas.AJUSTES },
         editarVerbo = { verboEditando = it.name },
         ajustesDosVerbos = { paginaAjustes = PaginasAjustes.VERBOS; tela = Telas.AJUSTES },
+        abrirWidgets = { tela = Telas.WIDGETS },
+        bloquear = if (doisToques) ({ Bloqueio.bloquear() }) else null,
+        ligarBloqueio = { Bloqueio.pedirPermissao(contexto) },
         papelDeParede = { Apps.papelDeParede(contexto) },
         atualizar = vm::acaoAtualizacao,
         definirPadrao = definirPadrao,
@@ -287,6 +368,8 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         },
         dispensar = Avisos::dispensar,
         permitir = { Avisos.pedirPermissao(contexto) },
+        responder = { a, texto -> Avisos.responder(contexto, a, texto) },
+        marcarLida = { Avisos.marcarComoLida(it) },
     )
     val acoesPessoa = AcoesPessoa(
         ligar = { Contatos.ligar(contexto, it) },
@@ -333,6 +416,8 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
             transitionSpec = {
                 when {
                     targetState == Telas.DIA -> slideInHorizontally { -it / 3 } + fadeIn() togetherWith fadeOut()
+                    targetState == Telas.WIDGETS -> slideInHorizontally { it / 3 } + fadeIn() togetherWith fadeOut()
+                    initialState == Telas.WIDGETS -> fadeIn() togetherWith slideOutHorizontally { it / 3 } + fadeOut()
                     initialState == Telas.DIA -> fadeIn() togetherWith slideOutHorizontally { -it / 3 } + fadeOut()
                     targetState == Telas.INICIO -> fadeIn() togetherWith slideOutVertically { it / 4 } + fadeOut()
                     else -> slideInVertically { it / 4 } + fadeIn() togetherWith fadeOut()
@@ -370,6 +455,15 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                     }
                     DiaTela(antes, costume, eventos, alarme, temAgenda, acoesDia)
                 }
+                atual == Telas.WIDGETS -> WidgetsTela(
+                    widgets,
+                    AcoesWidgets(
+                        adicionar = adicionarWidget,
+                        remover = vm::removerWidget,
+                        mudarAltura = vm::mudarAlturaWidget,
+                        voltar = voltarAoInicio,
+                    ),
+                )
                 atual == Telas.GAVETA -> {
                     val porChave = remember(apps) { apps.associateBy { it.chave } }
                     val recentes = remember(usoMudou, apps) {
@@ -402,6 +496,8 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         ritmo = ritmo,
                         modoNoite = modoNoite,
                         janelaNoite = janelaNoite,
+                        doisToques = doisToques,
+                        bloqueioLigado = bloqueioLigado,
                         appsPorVerbo = verbosCompletos.mapValues { it.value.size },
                         titulos = titulos,
                         verbosEscondidos = verbosEscondidos,
@@ -430,6 +526,8 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         modoNoite = vm::definirModoNoite,
                         janelaNoite = vm::definirJanelaNoite,
                         editarVerbo = { verboEditando = it.name },
+                        doisToques = vm::definirDoisToques,
+                        ligarBloqueio = { Bloqueio.pedirPermissao(contexto) },
                         esconderVerbo = vm::esconderVerbo,
                         mostrarApp = { vm.esconder(it, false) },
                         abrirCodigo = { Apps.abrirTela(contexto, Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/TioDanoni/wolf-launcher"))) },

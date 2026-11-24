@@ -1,5 +1,7 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.outlined.Apps
@@ -130,6 +132,10 @@ class AcoesInicio(
     val editarVerbo: (Verbo) -> Unit = {},
     /** Ajustes direto na pagina dos verbos. */
     val ajustesDosVerbos: () -> Unit = {},
+    val abrirWidgets: () -> Unit = {},
+    /** Bloquear a tela (nulo: dois toques desligado). Devolve falso se falta ligar o servico. */
+    val bloquear: (() -> Boolean)? = null,
+    val ligarBloqueio: () -> Unit = {},
 )
 
 /** O que esta esperando num verbo: a ultima notificacao e quantas tem. */
@@ -166,6 +172,7 @@ fun Inicio(
     matilha: @Composable () -> Unit,
 ) {
     var menuAberto by remember { mutableStateOf(false) }
+    var pedindoBloqueio by remember { mutableStateOf(false) }
     var leque by remember { mutableStateOf<EstadoLeque?>(null) }
 
     Box(Modifier.fillMaxSize()) {
@@ -174,13 +181,18 @@ fun Inicio(
                 when (direcao(dx, dy)) {
                     -1 -> acoes.abrirGaveta()
                     1 -> acoes.abrirNotificacoes()
-                    else -> if (dx > 0) acoes.abrirDia()
+                    else -> if (dx > 0) acoes.abrirDia() else acoes.abrirWidgets()
                 }
             },
             aoLetra = { letras, fim -> leque = EstadoLeque(letras.first().toString(), letras.drop(1), fim) },
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(Unit) { detectTapGestures(onLongPress = { menuAberto = true }) },
+                .pointerInput(acoes.bloquear != null) {
+                    detectTapGestures(
+                        onLongPress = { menuAberto = true },
+                        onDoubleTap = acoes.bloquear?.let { bloquear -> { _: Offset -> if (!bloquear()) pedindoBloqueio = true } },
+                    )
+                },
         ) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 18.dp)) {
                 Marca(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp))
@@ -226,6 +238,26 @@ fun Inicio(
 
         }
 
+        // dois toques sem o servico ligado: explica e leva para ligar
+        if (pedindoBloqueio) {
+            Folha({ pedindoBloqueio = false }) {
+                Text(
+                    "Bloquear com dois toques", color = Texto, fontSize = 21.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+                )
+                Text(
+                    "O Android só deixa um app bloquear a tela por um serviço de acessibilidade. O do WolfLauncher " +
+                        "não lê nada da tela: só bloqueia. Ligue “WolfLauncher” na próxima tela. Se o Android disser " +
+                        "“configuração restrita”, vá em Informações do app › ⋮ › Permitir configurações restritas.",
+                    color = TextoFraco, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                )
+                LinhaMenu(Icons.Outlined.Lock, "Ligar o bloqueio", "abre a acessibilidade do Android", fim = { Seta() }) {
+                    pedindoBloqueio = false
+                    acoes.ligarBloqueio()
+                }
+            }
+        }
+
         // segurar num espaco vazio: o menu do launcher
         if (menuAberto) {
             val fechar = { menuAberto = false }
@@ -249,6 +281,9 @@ fun Inicio(
                 }
                 LinhaMenu(Icons.Outlined.Today, "Seu dia", "também deslizando para a direita", fim = { Seta() }) {
                     fechar(); acoes.abrirDia()
+                }
+                LinhaMenu(Icons.Outlined.Widgets, "Widgets", "também deslizando para a esquerda", fim = { Seta() }) {
+                    fechar(); acoes.abrirWidgets()
                 }
             }
         }

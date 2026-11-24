@@ -62,6 +62,21 @@
             </intent-filter>
         </service>
 
+        <!-- Tocar duas vezes para bloquear: o unico jeito de um app bloquear a tela sem ser
+             administrador do aparelho. Nao le nada da tela. -->
+        <service
+            android:name=".bloqueio.Bloqueio"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/bloqueio" />
+        </service>
+
         <!-- O Android avisa aqui como foi a instalacao da versao nova. -->
         <receiver
             android:name=".atualizacao.ReceptorInstalacao"

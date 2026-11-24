@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">WolfLauncher</string>
+    <string name="bloqueio_descricao">Deixa o WolfLauncher bloquear a tela quando você toca duas vezes num espaço vazio da tela inicial. Ele não lê nem guarda nada do que aparece na tela.</string>
 </resources>

@@ -27,9 +27,11 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.SwipeLeft
 import androidx.compose.material.icons.outlined.SwipeRight
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.TouchApp
@@ -69,6 +71,8 @@ class EstadoAjustes(
     val ritmo: Boolean,
     val modoNoite: Boolean,
     val janelaNoite: Pair<Int, Int>,
+    val doisToques: Boolean,
+    val bloqueioLigado: Boolean,
     /** Quantos apps cada verbo tem (todos os verbos, mesmo os escondidos). */
     val appsPorVerbo: Map<Verbo, Int>,
     val titulos: Map<Verbo, String>,
@@ -95,6 +99,8 @@ class AcoesAjustes(
     val modoNoite: (Boolean) -> Unit,
     val janelaNoite: (Int, Int) -> Unit,
     val editarVerbo: (Verbo) -> Unit,
+    val doisToques: (Boolean) -> Unit,
+    val ligarBloqueio: () -> Unit,
     val esconderVerbo: (Verbo, Boolean) -> Unit,
     val mostrarApp: (AppInfo) -> Unit,
     val abrirCodigo: () -> Unit,
@@ -184,6 +190,15 @@ private fun PaginaPrincipal(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (
         fim = { Seta() },
     ) { abrir(PaginasAjustes.ESCONDIDOS) }
     LinhaMenu(Icons.Outlined.Gesture, "Gestos", "o que cada movimento faz", fim = { Seta() }) { abrir(PaginasAjustes.GESTOS) }
+    LinhaMenu(
+        Icons.Outlined.Lock, "Tocar duas vezes para bloquear",
+        when {
+            !estado.doisToques -> "desligado"
+            estado.bloqueioLigado -> "num espaço vazio da tela inicial"
+            else -> "falta ligar na acessibilidade: toque aqui"
+        },
+        fim = { ChaveWolf(estado.doisToques, acoes.doisToques) },
+    ) { if (estado.doisToques && !estado.bloqueioLigado) acoes.ligarBloqueio() else acoes.doisToques(!estado.doisToques) }
 
     SecaoMenu("Permissões")
     LinhaMenu(
@@ -278,6 +293,8 @@ private fun PaginaGestos(voltar: () -> Unit) {
     LinhaMenu(Icons.Outlined.KeyboardArrowUp, "Deslizar para cima", "todos os apps, por letra")
     LinhaMenu(Icons.Outlined.KeyboardArrowDown, "Deslizar para baixo", "a cortina de notificações")
     LinhaMenu(Icons.Outlined.SwipeRight, "Deslizar para a direita", "seu dia: antes, agora e depois")
+    LinhaMenu(Icons.Outlined.SwipeLeft, "Deslizar para a esquerda", "o painel de widgets")
+    LinhaMenu(Icons.Outlined.Lock, "Tocar duas vezes", "bloqueia a tela (liga em Ajustes)")
     LinhaMenu(Icons.Outlined.Draw, "Desenhar uma letra", "em qualquer lugar: o leque de apps daquela letra")
     LinhaMenu(Icons.Outlined.TouchApp, "Tocar num verbo", "os apps dele e quem está esperando")
     LinhaMenu(Icons.Outlined.Category, "Segurar um verbo", "renomear, escolher os apps, esconder")
