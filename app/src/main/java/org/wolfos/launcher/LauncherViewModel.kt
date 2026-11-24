@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.wolfos.launcher.atualizacao.Atualizador
+import org.wolfos.launcher.avisos.Aviso
+import org.wolfos.launcher.avisos.Avisos
 import org.wolfos.launcher.atualizacao.EstadoAtualizacao
 import org.wolfos.launcher.atualizacao.TrabalhoAtualizacao
 import org.wolfos.launcher.dados.AppInfo
@@ -23,6 +25,7 @@ import org.wolfos.launcher.dados.Contato
 import org.wolfos.launcher.dados.Contatos
 import org.wolfos.launcher.dados.EscolhasVerbo
 import org.wolfos.launcher.dados.Icones
+import org.wolfos.launcher.dados.Matilha
 import org.wolfos.launcher.dados.Padrao
 import org.wolfos.launcher.dados.Preferencias
 import org.wolfos.launcher.dados.Verbo
@@ -38,6 +41,9 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     private val _escolhas = MutableStateFlow(escolhasArq.ler())
     val escolhas: StateFlow<Map<String, String>> = _escolhas.asStateFlow()
 
+    private val _mostrarMatilha = MutableStateFlow(preferencias.mostrarMatilha)
+    val mostrarMatilha: StateFlow<Boolean> = _mostrarMatilha.asStateFlow()
+
     private val _instalarSozinho = MutableStateFlow(preferencias.instalarSozinho)
     val instalarSozinho: StateFlow<Boolean> = _instalarSozinho.asStateFlow()
 
@@ -48,6 +54,18 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _temContatos = MutableStateFlow(Contatos.temPermissao(app))
     val temContatos: StateFlow<Boolean> = _temContatos.asStateFlow()
+
+    /** As notificacoes (so com o acesso permitido). */
+    val avisos: StateFlow<List<Aviso>> = Avisos.lista
+
+    private val _avisosPermitidos = MutableStateFlow(Avisos.permitido(app))
+    val avisosPermitidos: StateFlow<Boolean> = _avisosPermitidos.asStateFlow()
+
+    private val matilhaArq = Matilha(app)
+    private val _matilha = MutableStateFlow(matilhaArq.ler())
+
+    /** Os ids escolhidos para a Matilha (vazio: os favoritos da agenda). */
+    val matilha: StateFlow<List<Long>> = _matilha.asStateFlow()
 
     /** Se o WolfLauncher e a tela inicial do Android (senao, a faixa pede). */
     private val _ehPadrao = MutableStateFlow(Padrao.ehPadrao(app))
@@ -91,6 +109,22 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun adicionarNaMatilha(id: Long) {
+        val atual = _matilha.value.ifEmpty { Matilha.pessoas(_contatos.value, emptyList()).map { it.id } }
+        if (id in atual || atual.size >= Matilha.MAXIMO) return
+        definirMatilha(atual + id)
+    }
+
+    fun tirarDaMatilha(id: Long) {
+        val atual = _matilha.value.ifEmpty { Matilha.pessoas(_contatos.value, emptyList()).map { it.id } }
+        definirMatilha(atual - id)
+    }
+
+    private fun definirMatilha(ids: List<Long>) {
+        matilhaArq.gravar(ids)
+        _matilha.value = ids
+    }
+
     fun mudarVerbo(app: AppInfo, verbo: Verbo?) {
         escolhasArq.gravar(app.chave, verbo)
         _escolhas.value = escolhasArq.ler()
@@ -99,6 +133,9 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     /** O launcher voltou para a tela: procura versao nova se faz tempo que nao procura. */
     fun aoVoltar() {
         _ehPadrao.value = Padrao.ehPadrao(getApplication())
+        _avisosPermitidos.value = Avisos.permitido(getApplication())
+        // a agenda pode ter mudado (ou a permissao chegado) enquanto estava fora
+        carregarContatos()
         viewModelScope.launch {
             Atualizador.aoVoltar(getApplication())
             val passou = System.currentTimeMillis() - preferencias.ultimaVerificacao
@@ -121,6 +158,11 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
                 if (!Apps.abrirTela(contexto, e.intent)) viewModelScope.launch { Atualizador.baixarEInstalar(contexto, e.versao) }
             else -> Unit
         }
+    }
+
+    fun definirMostrarMatilha(valor: Boolean) {
+        preferencias.mostrarMatilha = valor
+        _mostrarMatilha.value = valor
     }
 
     fun definirInstalarSozinho(valor: Boolean) {

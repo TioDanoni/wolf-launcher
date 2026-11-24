@@ -1,0 +1,141 @@
+package org.wolfos.launcher.avisos
+
+import android.app.ActivityOptions
+import android.app.Notification
+import android.app.PendingIntent
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.provider.Settings
+import android.service.notification.NotificationListenerService
+import android.service.notification.StatusBarNotification
+import androidx.compose.runtime.Immutable
+import androidx.core.app.NotificationManagerCompat
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+/** Uma notificacao que vale mostrar (mensagem, chamada perdida, e-mail...). */
+@Immutable
+data class Aviso(
+    val chave: String,
+    val pacote: String,
+    /** Quem mandou ou o assunto ("Ana", "Grupo Matilha"). */
+    val titulo: String,
+    val texto: String,
+    val quando: Long,
+    val abrir: PendingIntent?,
+)
+
+/**
+ * As notificacoes que estao na cortina, para o launcher mostrar junto dos verbos e da
+ * Matilha. Quem preenche e o [Ouvinte], que o Android liga quando a pessoa permite.
+ */
+object Avisos {
+    private val _lista = MutableStateFlow<List<Aviso>>(emptyList())
+
+    /** Da mais nova para a mais velha. */
+    val lista: StateFlow<List<Aviso>> = _lista.asStateFlow()
+
+    internal var ouvinte: Ouvinte? = null
+
+    fun permitido(contexto: Context): Boolean =
+        contexto.packageName in NotificationManagerCompat.getEnabledListenerPackages(contexto)
+
+    /** Abre a tela do Android para permitir o acesso as notificacoes. */
+    fun pedirPermissao(contexto: Context) {
+        val componente = ComponentName(contexto, Ouvinte::class.java).flattenToString()
+        val direto = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
+                .putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, componente)
+        } else {
+            null
+        }
+        val geral = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+        for (intent in listOfNotNull(direto, geral)) {
+            if (runCatching { contexto.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess) return
+        }
+    }
+
+    /** Abre o que a notificacao abriria (a conversa, a chamada...). */
+    fun abrir(contexto: Context, aviso: Aviso): Boolean {
+        val pi = aviso.abrir ?: return false
+        return runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                // o launcher esta na tela: empresta a permissao de abrir para o app da notificacao
+                val opcoes = ActivityOptions.makeBasic()
+                    .setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
+                pi.send(contexto, 0, null, null, null, null, opcoes.toBundle())
+            } else {
+                pi.send()
+            }
+        }.isSuccess
+    }
+
+    /** Tira a notificacao da cortina (como deslizar ela para o lado). */
+    fun dispensar(aviso: Aviso) {
+        runCatching { ouvinte?.cancelNotification(aviso.chave) }
+    }
+
+    internal fun publicar(notificacoes: Array<StatusBarNotification>?, meuPacote: String) {
+        _lista.value = notificacoes.orEmpty()
+            .filter { valeMostrar(it, meuPacote) }
+            .mapNotNull(::converter)
+            .sortedByDescending { it.quando }
+    }
+
+    internal fun limpar() {
+        _lista.value = emptyList()
+    }
+
+    private fun valeMostrar(sbn: StatusBarNotification, meuPacote: String): Boolean {
+        val n = sbn.notification
+        if (sbn.packageName == meuPacote || !sbn.isClearable) return false
+        if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return false
+        if (n.flags and Notification.FLAG_ONGOING_EVENT != 0) return false
+        // musica tocando, downloads, "procurando atualizacoes"... nao sao conversa
+        return n.category !in setOf(
+            Notification.CATEGORY_TRANSPORT, Notification.CATEGORY_PROGRESS, Notification.CATEGORY_SERVICE,
+            Notification.CATEGORY_SYSTEM, Notification.CATEGORY_STATUS,
+        )
+    }
+
+    private fun converter(sbn: StatusBarNotification): Aviso? {
+        val extras = sbn.notification.extras
+        val titulo = (extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
+            ?: extras.getCharSequence(Notification.EXTRA_TITLE))?.toString()?.trim()
+        val texto = (extras.getCharSequence(Notification.EXTRA_TEXT)
+            ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT))?.toString()?.trim().orEmpty()
+        if (titulo.isNullOrEmpty() && texto.isEmpty()) return null
+        return Aviso(
+            chave = sbn.key,
+            pacote = sbn.packageName,
+            titulo = titulo.orEmpty(),
+            texto = texto,
+            quando = sbn.notification.`when`.takeIf { it > 0 } ?: sbn.postTime,
+            abrir = sbn.notification.contentIntent,
+        )
+    }
+}
+
+/** O servico que o Android liga quando a pessoa permite o acesso as notificacoes. */
+class Ouvinte : NotificationListenerService() {
+    override fun onListenerConnected() {
+        Avisos.ouvinte = this
+        atualizar()
+    }
+
+    override fun onListenerDisconnected() {
+        Avisos.ouvinte = null
+        Avisos.limpar()
+    }
+
+    override fun onNotificationPosted(sbn: StatusBarNotification?) = atualizar()
+
+    override fun onNotificationRemoved(sbn: StatusBarNotification?) = atualizar()
+
+    private fun atualizar() {
+        Avisos.publicar(runCatching { activeNotifications }.getOrNull(), packageName)
+    }
+}

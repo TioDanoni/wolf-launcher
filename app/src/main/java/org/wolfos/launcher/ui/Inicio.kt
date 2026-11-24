@@ -1,5 +1,6 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +14,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -28,9 +31,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -74,6 +79,9 @@ class AcoesInicio(
     val abrirApp: (AppInfo) -> Unit,
 )
 
+/** O que esta esperando num verbo: a ultima notificacao e quantas tem. */
+data class Previa(val texto: String, val total: Int)
+
 /** O leque aberto: as letras desenhadas ate agora e onde o dedo parou. */
 private data class EstadoLeque(val prefixo: String, val alternativas: List<Char>, val centro: Offset)
 
@@ -89,7 +97,10 @@ fun Inicio(
     verbos: Map<Verbo, List<AppInfo>>,
     atualizacao: EstadoAtualizacao,
     ehPadrao: Boolean,
+    previas: Map<Verbo, Previa>,
     acoes: AcoesInicio,
+    /** A fileira da Matilha (ou nada), logo acima da barra de comando. */
+    matilha: @Composable () -> Unit,
 ) {
     var menuEm by remember { mutableStateOf<Offset?>(null) }
     var leque by remember { mutableStateOf<EstadoLeque?>(null) }
@@ -124,24 +135,15 @@ fun Inicio(
                         verticalArrangement = Arrangement.Bottom,
                         modifier = Modifier.align(Alignment.BottomStart).verticalScroll(rememberScrollState()),
                     ) {
-                        for (v in verbos.keys) {
-                            Text(
-                                v.titulo,
-                                fontSize = 34.sp,
-                                fontWeight = FontWeight.Light,
-                                color = Texto,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { acoes.abrirVerbo(v) }
-                                    .padding(horizontal = 8.dp, vertical = 7.dp),
-                            )
-                        }
+                        for (v in verbos.keys) LinhaVerbo(v, previas[v]) { acoes.abrirVerbo(v) }
                         if (verbos.isEmpty()) {
                             Text("Lendo seus apps…", color = TextoFraco, modifier = Modifier.padding(8.dp))
                         }
                     }
                 }
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(16.dp))
+                matilha()
+                Spacer(Modifier.height(12.dp))
                 BarraComandoFechada({ acoes.abrirComando("") })
                 Text(
                     "desenhe uma letra  ·  ︿ todos os apps  ·  segure para ajustes",
@@ -178,6 +180,40 @@ fun Inicio(
                 aoMaisLetras = { letras -> leque = l.copy(prefixo = l.prefixo + letras.first(), alternativas = letras.drop(1)) },
                 aoVerTodos = { leque = null; acoes.abrirComando(l.prefixo.lowercase()) },
                 aoFechar = { leque = null },
+            )
+        }
+    }
+}
+
+/** Um verbo na tela inicial; com algo esperando, fica mais forte e mostra a previa. */
+@Composable
+private fun LinhaVerbo(verbo: Verbo, previa: Previa?, aoTocar: () -> Unit) {
+    val cor = MaterialTheme.colorScheme.primary
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = aoTocar)
+            .padding(horizontal = 8.dp, vertical = 5.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                verbo.titulo,
+                fontSize = 34.sp,
+                fontWeight = if (previa != null) FontWeight.Medium else FontWeight.Light,
+                color = Texto,
+            )
+            if (previa != null) {
+                Box(Modifier.padding(start = 10.dp, bottom = 14.dp).size(8.dp).clip(CircleShape).background(cor))
+            }
+        }
+        if (previa != null) {
+            Text(
+                previa.texto + if (previa.total > 1) "  ·  +${previa.total - 1}" else "",
+                color = cor,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(start = 2.dp),
             )
         }
     }

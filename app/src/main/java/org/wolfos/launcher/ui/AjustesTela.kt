@@ -35,11 +35,29 @@ fun AjustesTela(
     aoAtualizar: () -> Unit,
     aoProcurar: ((Boolean) -> Unit) -> Unit,
     aoPapelDeParede: () -> Unit,
+    avisosPermitidos: Boolean,
+    aoPermitirAvisos: () -> Unit,
+    aoInformacoesDoLauncher: () -> Unit,
+    mostrarMatilha: Boolean,
+    aoMostrarMatilha: (Boolean) -> Unit,
     aoFechar: () -> Unit,
 ) {
     var procurando by remember { mutableStateOf<String?>(null) }
     Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState())) {
         Cabecalho("Ajustes", aoFechar)
+
+        Grupo("Tela inicial")
+        Chave("Matilha", "as pessoas no polegar (toque no + para escolher)", mostrarMatilha, aoMostrarMatilha)
+        if (avisosPermitidos) {
+            Linha("Prévias das notificações", "ligadas: os verbos e a Matilha mostram quem está esperando", aoTocar = aoPermitirAvisos)
+        } else {
+            Linha("Prévias das notificações", "tocar para permitir o acesso às notificações", aoTocar = aoPermitirAvisos)
+            Linha(
+                "O Android disse “configuração restrita”?",
+                "Toque aqui, depois em ⋮ (canto de cima) › Permitir configurações restritas, e volte para permitir",
+                aoTocar = aoInformacoesDoLauncher,
+            )
+        }
 
         Grupo("Atualizações")
         textoAtualizacao(atualizacao)?.let { (simbolo, texto, botao) ->

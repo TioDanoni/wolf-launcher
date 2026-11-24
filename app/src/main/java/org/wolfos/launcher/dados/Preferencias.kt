@@ -11,6 +11,11 @@ class Preferencias(contexto: Context) {
         get() = prefs.getBoolean("instalar_sozinho", true)
         set(v) = prefs.edit().putBoolean("instalar_sozinho", v).apply()
 
+    /** A fileira da Matilha na tela inicial. */
+    var mostrarMatilha: Boolean
+        get() = prefs.getBoolean("mostrar_matilha", true)
+        set(v) = prefs.edit().putBoolean("mostrar_matilha", v).apply()
+
     /** Ja pediu uma vez, sozinho, para ser a tela inicial (depois so pela faixa). */
     var jaPediuPadrao: Boolean
         get() = prefs.getBoolean("ja_pediu_padrao", false)

@@ -2,6 +2,8 @@ package org.wolfos.launcher
 
 import android.Manifest
 import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -31,13 +33,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.wolfos.launcher.avisos.Aviso
+import org.wolfos.launcher.avisos.Avisos
+import org.wolfos.launcher.dados.AppInfo
 import org.wolfos.launcher.dados.Apps
 import org.wolfos.launcher.dados.Contatos
+import org.wolfos.launcher.dados.Matilha
 import org.wolfos.launcher.dados.Padrao
 import org.wolfos.launcher.dados.Verbo
 import org.wolfos.launcher.dados.agrupar
 import org.wolfos.launcher.dados.verboDe
 import org.wolfos.launcher.ui.AcoesApp
+import org.wolfos.launcher.ui.AcoesAviso
+import org.wolfos.launcher.ui.AcoesPessoa
+import org.wolfos.launcher.ui.FileiraMatilha
+import org.wolfos.launcher.ui.Previa
 import org.wolfos.launcher.ui.AcoesComando
 import org.wolfos.launcher.ui.AcoesInicio
 import org.wolfos.launcher.ui.AjustesTela
@@ -92,6 +102,10 @@ private fun Tela(vm: LauncherViewModel, home: Int) {
     val contatos by vm.contatos.collectAsStateWithLifecycle()
     val temContatos by vm.temContatos.collectAsStateWithLifecycle()
     val ehPadrao by vm.ehPadrao.collectAsStateWithLifecycle()
+    val avisos by vm.avisos.collectAsStateWithLifecycle()
+    val avisosPermitidos by vm.avisosPermitidos.collectAsStateWithLifecycle()
+    val matilhaIds by vm.matilha.collectAsStateWithLifecycle()
+    val mostrarMatilha by vm.mostrarMatilha.collectAsStateWithLifecycle()
 
     var tela by rememberSaveable { mutableStateOf(Telas.INICIO) }
     var busca by rememberSaveable { mutableStateOf("") }
@@ -129,7 +143,15 @@ private fun Tela(vm: LauncherViewModel, home: Int) {
         vm.carregarContatos()
     }
 
+    // escolher alguem da agenda para a Matilha (o seletor do Android nao precisa de permissao,
+    // mas o numero vem da nossa leitura da agenda, que precisa)
+    val escolherPessoa = rememberLauncherForActivityResult(ActivityResultContracts.PickContact()) { uri ->
+        uri?.lastPathSegment?.toLongOrNull()?.let(vm::adicionarNaMatilha)
+    }
+
     val verbos = remember(apps, escolhas) { agrupar(apps, escolhas) }
+    val previas = remember(avisos, apps, escolhas) { previasDosVerbos(avisos, apps, escolhas) }
+    val pessoas = remember(contatos, matilhaIds) { Matilha.pessoas(contatos, matilhaIds) }
     val acoesApp = AcoesApp(
         abrir = { app -> if (Apps.abrir(contexto, app)) voltarAoInicio() },
         verboDe = { verboDe(it, escolhas) },
@@ -147,6 +169,26 @@ private fun Tela(vm: LauncherViewModel, home: Int) {
         atualizar = vm::acaoAtualizacao,
         definirPadrao = definirPadrao,
         abrirApp = acoesApp.abrir,
+    )
+    val acoesAviso = AcoesAviso(
+        abrir = { a ->
+            val app = apps.firstOrNull { it.pacote == a.pacote }
+            if (Avisos.abrir(contexto, a) || (app != null && Apps.abrir(contexto, app))) voltarAoInicio()
+        },
+        dispensar = Avisos::dispensar,
+        permitir = { Avisos.pedirPermissao(contexto) },
+    )
+    val acoesPessoa = AcoesPessoa(
+        ligar = { Contatos.ligar(contexto, it) },
+        mensagem = { Contatos.mensagem(contexto, it) },
+        whatsapp = if (remember(apps) { Matilha.temWhatsapp(contexto) }) { c -> Matilha.whatsapp(contexto, c) } else null,
+        verNaAgenda = { Matilha.verNaAgenda(contexto, it) },
+        abrirAviso = acoesAviso.abrir,
+        tirar = { vm.tirarDaMatilha(it.id) },
+        adicionar = {
+            if (temContatos) runCatching { escolherPessoa.launch(null) }
+            else pedidoContatos.launch(Manifest.permission.READ_CONTACTS)
+        },
     )
     val acoesComando = AcoesComando(
         ligar = { if (Contatos.ligar(contexto, it)) voltarAoInicio() },
@@ -172,7 +214,9 @@ private fun Tela(vm: LauncherViewModel, home: Int) {
             label = "tela",
         ) { atual ->
             when {
-                atual == Telas.INICIO -> Inicio(apps, verbos, atualizacao, ehPadrao, acoesInicio)
+                atual == Telas.INICIO -> Inicio(apps, verbos, atualizacao, ehPadrao, previas, acoesInicio) {
+                    if (mostrarMatilha) FileiraMatilha(pessoas, avisos, temContatos, acoesPessoa)
+                }
                 atual == Telas.GAVETA -> Gaveta(apps, acoesApp, busca) { busca = it }
                 atual == Telas.COMANDO -> Comando(
                     apps = apps,
@@ -190,15 +234,41 @@ private fun Tela(vm: LauncherViewModel, home: Int) {
                     aoAtualizar = vm::acaoAtualizacao,
                     aoProcurar = { pronto -> vm.procurarAtualizacao(pronto) },
                     aoPapelDeParede = { Apps.papelDeParede(contexto) },
+                    avisosPermitidos = avisosPermitidos,
+                    aoPermitirAvisos = { Avisos.pedirPermissao(contexto) },
+                    aoInformacoesDoLauncher = {
+                        Apps.abrirTela(
+                            contexto,
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + contexto.packageName)),
+                        )
+                    },
+                    mostrarMatilha = mostrarMatilha,
+                    aoMostrarMatilha = vm::definirMostrarMatilha,
                     aoFechar = voltarAoInicio,
                 )
                 atual.startsWith(Telas.VERBO) -> {
                     val verbo = Verbo.entries.firstOrNull { it.name == atual.removePrefix(Telas.VERBO) }
                     val lista = verbo?.let { verbos[it] }.orEmpty()
-                    if (verbo != null) VerboTela(verbo, lista, acoesApp, voltarAoInicio)
+                    if (verbo != null) VerboTela(verbo, lista, avisos, avisosPermitidos, acoesApp, acoesAviso, voltarAoInicio)
                 }
                 else -> Unit
             }
         }
     }
+}
+
+/** Para cada verbo, a notificacao mais nova dos apps dele e quantas tem. */
+private fun previasDosVerbos(avisos: List<Aviso>, apps: List<AppInfo>, escolhas: Map<String, String>): Map<Verbo, Previa> {
+    if (avisos.isEmpty()) return emptyMap()
+    val verboDoPacote = HashMap<String, Verbo>()
+    for (app in apps) verboDe(app, escolhas)?.let { verboDoPacote.putIfAbsent(app.pacote, it) }
+    return avisos
+        .groupBy { verboDoPacote[it.pacote] }
+        .mapNotNull { (verbo, lista) ->
+            if (verbo == null) return@mapNotNull null
+            val a = lista.first()
+            val texto = if (a.titulo.isNotEmpty() && a.texto.isNotEmpty()) "${a.titulo}: ${a.texto}" else a.titulo + a.texto
+            verbo to Previa(texto, lista.size)
+        }
+        .toMap()
 }
