@@ -44,6 +44,7 @@ import org.wolfos.launcher.dados.Icones
 import org.wolfos.launcher.dados.Matilha
 import org.wolfos.launcher.dados.Cidade
 import org.wolfos.launcher.dados.Padrao
+import org.wolfos.launcher.ui.EstiloRelogio
 import org.wolfos.launcher.ui.Paleta
 import org.wolfos.launcher.dados.Previsao
 import org.wolfos.launcher.dados.Tempo
@@ -247,6 +248,14 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _paleta = MutableStateFlow(Paleta.entries.firstOrNull { it.name == preferencias.paleta } ?: Paleta.LOBO)
     val paleta: StateFlow<Paleta> = _paleta.asStateFlow()
+
+    private val _estiloRelogio = MutableStateFlow(EstiloRelogio.entries.firstOrNull { it.name == preferencias.estiloRelogio } ?: EstiloRelogio.UIVO)
+    val estiloRelogio: StateFlow<EstiloRelogio> = _estiloRelogio.asStateFlow()
+
+    fun definirEstiloRelogio(e: EstiloRelogio) {
+        preferencias.estiloRelogio = e.name
+        _estiloRelogio.value = e
+    }
 
     fun definirPaleta(p: Paleta) {
         preferencias.paleta = p.name

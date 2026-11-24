@@ -179,6 +179,8 @@ fun Inicio(
     acoes: AcoesInicio,
     /** O tempo (vem da notificacao do app do clima), ao lado da data. */
     clima: Clima? = null,
+    /** O jeito do relogio grande. */
+    estiloRelogio: EstiloRelogio = EstiloRelogio.UIVO,
     /** O clima de verdade (Open-Meteo), embaixo do relogio; com ele, o da notificacao some. */
     tempo: (@Composable () -> Unit)? = null,
     /** Os compromissos de hoje, embaixo do clima. */
@@ -211,7 +213,11 @@ fun Inicio(
         ) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 18.dp)) {
                 Marca(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp))
-                Relogio(clima.takeIf { tempo == null }, Modifier.padding(start = 6.dp, top = 22.dp))
+                if (estiloRelogio == EstiloRelogio.CLASSICO) {
+                    Relogio(clima.takeIf { tempo == null }, Modifier.padding(start = 6.dp, top = 22.dp))
+                } else {
+                    RelogioGrande(estiloRelogio, Modifier.padding(start = 4.dp, top = 18.dp))
+                }
                 tempo?.let { Box(Modifier.padding(start = 2.dp, top = 10.dp).entrada(1)) { it() } }
                 compromissos?.let { Box(Modifier.padding(top = 12.dp).entrada(2)) { it() } }
                 // a faixa do agora: primeiro o que falta para o launcher funcionar direito

@@ -41,6 +41,11 @@ class Preferencias(contexto: Context) {
         get() = prefs.getString("paleta", "LOBO") ?: "LOBO"
         set(v) = prefs.edit().putString("paleta", v).apply()
 
+    /** O estilo do relogio (nome do enum EstiloRelogio). */
+    var estiloRelogio: String
+        get() = prefs.getString("estilo_relogio", "UIVO") ?: "UIVO"
+        set(v) = prefs.edit().putString("estilo_relogio", v).apply()
+
     /** A fileira da Matilha na tela inicial. */
     var mostrarMatilha: Boolean
         get() = prefs.getBoolean("mostrar_matilha", true)

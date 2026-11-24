@@ -65,6 +65,7 @@ import org.wolfos.launcher.ui.AcoesCompromissos
 import org.wolfos.launcher.ui.AcoesPlayer
 import org.wolfos.launcher.ui.CompromissosDoDia
 import org.wolfos.launcher.ui.TempoAgora
+import org.wolfos.launcher.ui.eventosDeHoje
 import org.wolfos.launcher.ui.AcoesVerbo
 import org.wolfos.launcher.ui.Player
 import org.wolfos.launcher.ui.AcoesWidgets
@@ -220,6 +221,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     val fahrenheit by vm.fahrenheit.collectAsStateWithLifecycle()
     val mostrarCompromissos by vm.compromissos.collectAsStateWithLifecycle()
     val fundoAnimado by vm.fundoAnimado.collectAsStateWithLifecycle()
+    val estiloRelogio by vm.estiloRelogio.collectAsStateWithLifecycle()
     // o player aparece tocando, e ate 15 min depois de pausar (a hora muda a cada minuto e reavalia)
     val musicaNoPlayer = remember(musica, mostrarPlayer, hora, agora().minute) {
         musica?.takeIf { m ->
@@ -469,10 +471,11 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                     apps, verbos, atualizacao, ehPadrao, previas, faixaAgora, noite,
                     iconesDosVerbos, titulos, musica, acoesMusica, acoesInicio,
                     clima = clima,
+                    estiloRelogio = estiloRelogio,
                     tempo = previsao?.takeIf { tempoLigado }?.let { p ->
                         { TempoAgora(p, if (fahrenheit) "°F" else "°", aoTocar = { vm.atualizarTempo(forcar = true) }) }
                     },
-                    compromissos = if (mostrarCompromissos) {
+                    compromissos = if (mostrarCompromissos && temAgenda && eventosDeHoje(eventos).isNotEmpty()) {
                         {
                             CompromissosDoDia(
                                 eventos, temAgenda,
@@ -572,6 +575,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         fahrenheit = fahrenheit,
                         compromissos = mostrarCompromissos,
                         fundoAnimado = fundoAnimado,
+                        estiloRelogio = estiloRelogio,
                         paleta = vm.paleta.collectAsStateWithLifecycle().value,
                         ritmo = ritmo,
                         modoNoite = modoNoite,
@@ -609,6 +613,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         fahrenheit = vm::definirFahrenheit,
                         compromissos = vm::definirCompromissos,
                         fundoAnimado = vm::definirFundoAnimado,
+                        estiloRelogio = vm::definirEstiloRelogio,
                         paleta = vm::definirPaleta,
                         ritmo = vm::definirRitmo,
                         modoNoite = vm::definirModoNoite,
@@ -686,7 +691,6 @@ private fun faixaDoAgora(
         val texto = "Despertador %02d:%02d · %d h %02d de sono".format(hora.hour, hora.minute, sono / 60, sono % 60)
         return FaixaInfo("⏰", texto, "Ver", abrirAlarmes)
     }
-    if (noite) return FaixaInfo("⏰", "Nenhum despertador marcado", "Criar", criarAlarme)
     val e = eventos.firstOrNull { !it.diaInteiro && it.inicio - agora < 3 * 3_600_000L } ?: return null
     val quando = if (e.inicio <= agora) "agora" else quandoFalta(e.inicio, agora)
     return if (e.link != null) FaixaInfo("◷", "${e.titulo} · $quando", "Entrar") { entrar(e) }

@@ -13,6 +13,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -97,6 +98,7 @@ class EstadoAjustes(
     val compromissos: Boolean,
     val fundoAnimado: Boolean,
     val paleta: Paleta,
+    val estiloRelogio: EstiloRelogio,
     val ritmo: Boolean,
     val modoNoite: Boolean,
     val janelaNoite: Pair<Int, Int>,
@@ -132,6 +134,7 @@ class AcoesAjustes(
     val compromissos: (Boolean) -> Unit,
     val fundoAnimado: (Boolean) -> Unit,
     val paleta: (Paleta) -> Unit,
+    val estiloRelogio: (EstiloRelogio) -> Unit,
     val ritmo: (Boolean) -> Unit,
     val modoNoite: (Boolean) -> Unit,
     val janelaNoite: (Int, Int) -> Unit,
@@ -179,6 +182,34 @@ private fun PaginaPrincipal(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (
     }
     if (!estado.ehPadrao) {
         LinhaMenu(Icons.Outlined.Home, "Usar como tela inicial", "o WolfLauncher ainda não é a tela inicial", fim = { Seta() }, aoTocar = acoes.definirPadrao)
+    }
+
+    SecaoMenu("Relógio")
+    Row(
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
+    ) {
+        for (e in EstiloRelogio.entries) {
+            val marcado = e == estado.estiloRelogio
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (marcado) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f) else Color.Transparent)
+                    .border(1.dp, if (marcado) MaterialTheme.colorScheme.primary else Texto.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
+                    .clickable { acoes.estiloRelogio(e) }
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+            ) {
+                Text(
+                    if (e == EstiloRelogio.MANUSCRITO) "Ter." else "12",
+                    fontFamily = fonteDoEstilo(e),
+                    fontSize = 30.sp,
+                    fontWeight = if (e == EstiloRelogio.CLASSICO) FontWeight.Light else FontWeight.Normal,
+                    style = androidx.compose.ui.text.TextStyle(brush = Brush.verticalGradient(listOf(Texto, MaterialTheme.colorScheme.primary))),
+                )
+                Text(e.titulo, color = if (marcado) Texto else TextoFraco, fontSize = 11.sp, maxLines = 1)
+            }
+        }
     }
 
     SecaoMenu("Cores")

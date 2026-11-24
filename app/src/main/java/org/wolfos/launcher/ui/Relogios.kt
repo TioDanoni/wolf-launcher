@@ -1,0 +1,162 @@
+package org.wolfos.launcher.ui
+
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
+import org.wolfos.launcher.R
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+/** Os jeitos de mostrar a hora (a peca de mais impacto da tela inicial). */
+enum class EstiloRelogio(val titulo: String) {
+    UIVO("Uivo"),
+    MANUSCRITO("Manuscrito"),
+    LUA("Lua"),
+    NEON("Neon"),
+    CLASSICO("Clássico"),
+}
+
+/** As fontes de cada estilo (OFL, do acervo do Google Fonts). */
+val FonteUivo = FontFamily(Font(R.font.fonte_uivo))
+val FonteManuscrito = FontFamily(Font(R.font.fonte_manuscrito))
+val FonteLua = FontFamily(Font(R.font.fonte_lua))
+val FonteNeon = FontFamily(Font(R.font.fonte_neon))
+
+fun fonteDoEstilo(e: EstiloRelogio): FontFamily? = when (e) {
+    EstiloRelogio.UIVO -> FonteUivo
+    EstiloRelogio.MANUSCRITO -> FonteManuscrito
+    EstiloRelogio.LUA -> FonteLua
+    EstiloRelogio.NEON -> FonteNeon
+    EstiloRelogio.CLASSICO -> null
+}
+
+private val PT = Locale.forLanguageTag("pt-BR")
+private val HH = DateTimeFormatter.ofPattern("HH")
+private val MM = DateTimeFormatter.ofPattern("mm")
+private val HHMM = DateTimeFormatter.ofPattern("HH:mm")
+private val SEMANA = DateTimeFormatter.ofPattern("EEEE", PT)
+private val SEMANA_CURTA = DateTimeFormatter.ofPattern("EEE", PT)
+private val DATA = DateTimeFormatter.ofPattern("d 'de' MMMM", PT)
+private val DATA_CURTA = DateTimeFormatter.ofPattern("d MMM", PT)
+
+/** Texto sem espaco sobrando em cima e embaixo (as fontes de display tem muito). */
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+private fun apertado(tamanho: TextUnit, fonte: FontFamily?, pincel: Brush, sombra: Shadow = SombraTexto) = TextStyle(
+    fontFamily = fonte,
+    fontSize = tamanho,
+    lineHeight = tamanho * 0.92f,
+    brush = pincel,
+    shadow = sombra,
+    lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both),
+)
+
+/** Cada caractere desliza quando muda (o minuto virando). */
+@Composable
+fun Digitos(texto: String, estilo: TextStyle) {
+    Row {
+        texto.forEachIndexed { i, ch ->
+            AnimatedContent(
+                targetState = ch,
+                transitionSpec = {
+                    (slideInVertically(tween(450)) { -it / 2 } + fadeIn(tween(450))) togetherWith
+                        (slideOutVertically(tween(450)) { it / 2 } + fadeOut(tween(300)))
+                },
+                label = "digito$i",
+            ) { c -> Text(c.toString(), style = estilo) }
+        }
+    }
+}
+
+/**
+ * O relogio grande, no estilo escolhido. O Classico continua no Inicio; aqui ficam os
+ * de impacto: Uivo (empilhado, condensado), Manuscrito (o dia a mao), Lua (serifa) e
+ * Neon (arredondado com brilho).
+ */
+@Composable
+fun RelogioGrande(estilo: EstiloRelogio, modifier: Modifier = Modifier) {
+    val momento = agora()
+    val primaria = MaterialTheme.colorScheme.primary
+    val segunda = MaterialTheme.colorScheme.secondary
+    val claro = Brush.verticalGradient(0.2f to Texto, 1f to primaria)
+    val cor = Brush.verticalGradient(listOf(primaria, segunda))
+    val semana = momento.format(SEMANA).replaceFirstChar { it.uppercase() }
+    val data = momento.format(DATA)
+
+    when (estilo) {
+        EstiloRelogio.UIVO -> Row(verticalAlignment = Alignment.Bottom, modifier = modifier) {
+            Column {
+                Digitos(momento.format(HH), apertado(128.sp, FonteUivo, claro))
+                Digitos(momento.format(MM), apertado(128.sp, FonteUivo, cor))
+            }
+            Column(Modifier.padding(start = 16.dp, bottom = 14.dp)) {
+                Text(
+                    semana.uppercase(),
+                    style = TextStyle(fontFamily = FonteUivo, fontSize = 34.sp, letterSpacing = 0.06.em, brush = Brush.horizontalGradient(listOf(primaria, segunda)), shadow = SombraTexto),
+                )
+                Text(data, color = Texto.copy(alpha = 0.8f), fontSize = 15.sp, style = TextStyle(shadow = SombraTexto))
+            }
+        }
+
+        EstiloRelogio.MANUSCRITO -> Column(modifier) {
+            Text(
+                momento.format(SEMANA_CURTA).replaceFirstChar { it.uppercase() }.let { if (it.endsWith('.')) it else "$it." },
+                style = apertado(110.sp, FonteManuscrito, Brush.linearGradient(listOf(Texto, primaria))),
+                modifier = Modifier.rotate(-4f).offset(x = (-4).dp),
+            )
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp, start = 6.dp)) {
+                Digitos(momento.format(HHMM), TextStyle(fontFamily = FonteManuscrito, fontSize = 30.sp, color = Texto, shadow = SombraTexto))
+                Text(
+                    "  ·  " + momento.format(DATA_CURTA).replace(".", ""),
+                    style = TextStyle(fontFamily = FonteManuscrito, fontSize = 26.sp, color = Texto.copy(alpha = 0.85f), shadow = SombraTexto),
+                )
+            }
+        }
+
+        EstiloRelogio.LUA -> Column(modifier) {
+            Digitos(momento.format(HHMM), apertado(100.sp, FonteLua, claro))
+            Text(
+                "$semana, $data",
+                style = TextStyle(fontFamily = FonteLua, fontSize = 24.sp, brush = Brush.horizontalGradient(listOf(primaria, segunda)), shadow = SombraTexto),
+                modifier = Modifier.padding(start = 4.dp, top = 6.dp),
+            )
+        }
+
+        EstiloRelogio.NEON -> Column(modifier) {
+            // o brilho e uma sombra borrada na cor da paleta
+            val brilho = Shadow(primaria.copy(alpha = 0.85f), Offset(0f, 0f), 36f)
+            Digitos(momento.format(HHMM), apertado(96.sp, FonteNeon, Brush.horizontalGradient(listOf(primaria, segunda)), brilho))
+            Text(
+                "${momento.format(SEMANA_CURTA).replace(".", "").uppercase()}  ·  ${momento.format(DATA_CURTA).replace(".", "").uppercase()}",
+                style = TextStyle(fontFamily = FonteNeon, fontSize = 18.sp, letterSpacing = 0.2.em, color = Texto, shadow = Shadow(segunda.copy(alpha = 0.7f), Offset.Zero, 18f)),
+                modifier = Modifier.padding(start = 6.dp, top = 8.dp),
+            )
+        }
+
+        EstiloRelogio.CLASSICO -> Unit
+    }
+}

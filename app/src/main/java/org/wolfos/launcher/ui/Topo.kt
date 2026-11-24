@@ -144,6 +144,13 @@ fun TempoAgora(p: Previsao, unidade: String, aoTocar: () -> Unit, modifier: Modi
     }
 }
 
+/** Os eventos de hoje que ainda nao acabaram (no maximo 3). */
+fun eventosDeHoje(eventos: List<Evento>): List<Evento> {
+    val agora = System.currentTimeMillis()
+    val fimDoDia = org.wolfos.launcher.dados.Uso.inicioDoDia() + 24 * 3_600_000L
+    return eventos.filter { it.inicio < fimDoDia && it.fim > agora }.take(3)
+}
+
 /** O que os compromissos do dia fazem. */
 class AcoesCompromissos(
     val abrir: (Evento) -> Unit,

@@ -121,3 +121,9 @@ design/                    scripts que geram os mockups (python3 design/gerar_fi
 
 Código com nomes em português sem acento; o que aparece na tela, com acento (o mesmo
 estilo do projeto WolfOS).
+
+## Fontes
+
+Os estilos de relógio usam fontes com a licença SIL Open Font License 1.1 (do acervo
+do Google Fonts): Bebas Neue (Uivo), Caveat Brush (Manuscrito), DM Serif Display (Lua)
+e Righteous (Neon). Ficam em `app/src/main/res/font/`.
