@@ -329,7 +329,7 @@ fun Inicio(
                 LinhaMenu(Icons.Outlined.Today, "Seu dia", "também deslizando para a direita", fim = { Seta() }) {
                     fechar(); acoes.abrirDia()
                 }
-                LinhaMenu(Icons.Outlined.Widgets, "Widgets", "também deslizando para a esquerda", fim = { Seta() }) {
+                LinhaMenu(Icons.Outlined.Widgets, "Painel", "ferramentas, notas, timer e widgets", fim = { Seta() }) {
                     fechar(); acoes.abrirWidgets()
                 }
             }

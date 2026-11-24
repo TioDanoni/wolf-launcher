@@ -74,6 +74,9 @@ import org.wolfos.launcher.ui.PaginasAjustes
 import org.wolfos.launcher.ui.AcoesAviso
 import org.wolfos.launcher.ui.AcoesDia
 import org.wolfos.launcher.ui.AcoesBusca
+import org.wolfos.launcher.ui.AcoesPainel
+import org.wolfos.launcher.ui.EstadoPainel
+import org.wolfos.launcher.ui.PainelTela
 import org.wolfos.launcher.ui.AcoesMusica
 import org.wolfos.launcher.ui.BuscaTela
 import org.wolfos.launcher.ui.ListaInicio
@@ -277,6 +280,10 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         uri?.lastPathSegment?.toLongOrNull()?.let(vm::adicionarNaMatilha)
     }
 
+    // os fones e aparelhos Bluetooth do Painel (Android 12+ pede a permissao)
+    val temBluetooth = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S ||
+        androidx.core.content.ContextCompat.checkSelfPermission(contexto, Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    val pedidoBluetooth = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { vm.carregarAparelhos() }
     val pedidoAgenda = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         vm.carregarDia()
     }
@@ -587,15 +594,68 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                     }
                     DiaTela(antes, costume, eventos, alarme, temAgenda, acoesDia)
                 }
-                atual == Telas.WIDGETS -> WidgetsTela(
-                    widgets,
-                    AcoesWidgets(
-                        adicionar = adicionarWidget,
-                        remover = vm::removerWidget,
-                        mudarAltura = vm::mudarAlturaWidget,
-                        voltar = voltarAoInicio,
-                    ),
-                )
+                atual == Telas.WIDGETS -> {
+                    val notas by vm.notas.collectAsStateWithLifecycle()
+                    val aparelhos by vm.aparelhos.collectAsStateWithLifecycle()
+                    val timerMudou by vm.timerMudou.collectAsStateWithLifecycle()
+                    val ordemPainel by vm.ordemPainel.collectAsStateWithLifecycle()
+                    val escondidasPainel by vm.escondidasPainel.collectAsStateWithLifecycle()
+                    PainelTela(
+                        EstadoPainel(
+                            previsao = previsao?.takeIf { tempoLigado },
+                            unidade = if (fahrenheit) "°F" else "°",
+                            aparelhos = aparelhos,
+                            temBluetooth = temBluetooth,
+                            timer = vm.timer,
+                            timerMudou = timerMudou,
+                            musica = musica,
+                            notas = notas,
+                            eventos = eventos,
+                            temAgenda = temAgenda,
+                            widgets = widgets,
+                            ordem = ordemPainel,
+                            escondidas = escondidasPainel,
+                        ),
+                        AcoesPainel(
+                            voltar = voltarAoInicio,
+                            abrirClima = { if (previsao != null) mostrandoSemana = true else { paginaAjustes = PaginasAjustes.PRINCIPAL; tela = Telas.AJUSTES } },
+                            pedirBluetooth = {
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) pedidoBluetooth.launch(Manifest.permission.BLUETOOTH_CONNECT)
+                                else vm.carregarAparelhos()
+                            },
+                            scanner = {
+                                // a camera abre no modo foto; ela le QR code sozinha na maioria dos celulares
+                                Apps.abrirTela(contexto, Intent(android.provider.MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA))
+                            },
+                            comecarTimer = vm::comecarTimer,
+                            pararTimer = vm::pararTimer,
+                            alternarCrono = vm::alternarCrono,
+                            zerarCrono = vm::zerarCrono,
+                            acoesPlayer = AcoesPlayer(
+                                tocarOuPausar = Tocando::tocarOuPausar,
+                                anterior = Tocando::anterior,
+                                proxima = Tocando::proxima,
+                                irPara = Tocando::irPara,
+                                abrir = acoesMusica.abrir,
+                            ),
+                            adicionarNota = vm::adicionarNota,
+                            alternarNota = vm::alternarNota,
+                            apagarNota = vm::apagarNota,
+                            limparFeitas = vm::limparFeitas,
+                            abrirEvento = { Agenda.abrir(contexto, it) },
+                            entrarEvento = { Agenda.entrar(contexto, it) },
+                            permitirAgenda = { pedidoAgenda.launch(Manifest.permission.READ_CALENDAR) },
+                            acoesWidgets = AcoesWidgets(
+                                adicionar = adicionarWidget,
+                                remover = vm::removerWidget,
+                                mudarAltura = vm::mudarAlturaWidget,
+                                voltar = voltarAoInicio,
+                            ),
+                            moverParte = vm::moverParte,
+                            alternarParte = vm::alternarParte,
+                        ),
+                    )
+                }
                 atual == Telas.GAVETA -> {
                     val porChave = remember(apps) { apps.associateBy { it.chave } }
                     val recentes = remember(usoMudou, apps) {
@@ -604,7 +664,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                     val contagem = remember(avisos) { avisos.groupingBy { it.pacote }.eachCount() }
                     Gaveta(
                         apps, acoesApp, busca, { busca = it }, recentes, contagem,
-                        aoAcao = { a -> a.executar(contexto); voltarAoInicio() },
+                        aoAcao = { a -> a.executar(contexto); vm.recarregarNotas(); vm.timerTalvezMudou(); voltarAoInicio() },
                         aoWeb = { Apps.buscarNaWeb(contexto, it); voltarAoInicio() },
                         contatos = contatos,
                         aoLigar = { if (Contatos.ligar(contexto, it)) voltarAoInicio() },
@@ -630,7 +690,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                             abrirConversa = acoesConversa.abrir,
                             ligar = { if (Contatos.ligar(contexto, it)) voltarAoInicio() },
                             mensagem = { if (Contatos.mensagem(contexto, it)) voltarAoInicio() },
-                            executar = { a -> a.executar(contexto); voltarAoInicio() },
+                            executar = { a -> a.executar(contexto); vm.recarregarNotas(); vm.timerTalvezMudou(); voltarAoInicio() },
                             web = { Apps.buscarNaWeb(contexto, it); voltarAoInicio() },
                             ajustes = { comando = ""; paginaAjustes = PaginasAjustes.PRINCIPAL; tela = Telas.AJUSTES },
                             todosApps = { busca = ""; tela = Telas.GAVETA },

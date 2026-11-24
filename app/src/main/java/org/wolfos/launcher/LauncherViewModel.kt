@@ -46,7 +46,14 @@ import org.wolfos.launcher.dados.Cidade
 import org.wolfos.launcher.dados.AcaoGesto
 import org.wolfos.launcher.dados.Gesto
 import org.wolfos.launcher.dados.CoresWallpaper
+import org.wolfos.launcher.dados.Aparelho
+import org.wolfos.launcher.dados.Aparelhos
+import org.wolfos.launcher.dados.ArrumacaoPainel
+import org.wolfos.launcher.dados.Nota
+import org.wolfos.launcher.dados.Notas
 import org.wolfos.launcher.dados.Padrao
+import org.wolfos.launcher.dados.PartePainel
+import org.wolfos.launcher.dados.TimerWolf
 import org.wolfos.launcher.dados.PacoteIcones
 import org.wolfos.launcher.ui.EstiloRelogio
 import org.wolfos.launcher.ui.Paleta
@@ -266,6 +273,40 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---- opcoes da tela inicial: Matilha so fixadas, marca, escuro do fundo, gestos
+    // ---- o Painel: notas e tarefas, timer, aparelhos Bluetooth e a arrumacao das partes
+    private val notasArq = Notas(app)
+    private val _notas = MutableStateFlow(notasArq.ler())
+    val notas: StateFlow<List<Nota>> = _notas.asStateFlow()
+    fun recarregarNotas() { _notas.value = notasArq.ler() }
+    fun adicionarNota(texto: String, tarefa: Boolean = true) { _notas.value = notasArq.adicionar(texto, tarefa) }
+    fun alternarNota(id: Long) { _notas.value = notasArq.alternar(id) }
+    fun apagarNota(id: Long) { _notas.value = notasArq.apagar(id) }
+    fun limparFeitas() { _notas.value = notasArq.limparFeitas() }
+
+    val timer = TimerWolf(app)
+    /** Muda quando o timer ou o cronometro mudam (a tela le de novo). */
+    private val _timerMudou = MutableStateFlow(0)
+    val timerMudou: StateFlow<Int> = _timerMudou.asStateFlow()
+    fun comecarTimer(minutos: Int, rotulo: String) { timer.comecar(getApplication(), minutos, rotulo); _timerMudou.value++ }
+    fun pararTimer() { timer.parar(getApplication()); _timerMudou.value++ }
+    fun alternarCrono() { timer.cronoAlternar(); _timerMudou.value++ }
+    fun zerarCrono() { timer.cronoZerar(); _timerMudou.value++ }
+    fun timerTalvezMudou() { _timerMudou.value++ }
+
+    private val _aparelhos = MutableStateFlow<List<Aparelho>>(emptyList())
+    val aparelhos: StateFlow<List<Aparelho>> = _aparelhos.asStateFlow()
+    fun carregarAparelhos() {
+        viewModelScope.launch { _aparelhos.value = withContext(Dispatchers.IO) { Aparelhos.conectados(getApplication()) } }
+    }
+
+    private val arrumacao = ArrumacaoPainel(app)
+    private val _ordemPainel = MutableStateFlow(arrumacao.ordem())
+    val ordemPainel: StateFlow<List<PartePainel>> = _ordemPainel.asStateFlow()
+    private val _escondidasPainel = MutableStateFlow(arrumacao.escondidas())
+    val escondidasPainel: StateFlow<Set<PartePainel>> = _escondidasPainel.asStateFlow()
+    fun moverParte(p: PartePainel, passo: Int) { arrumacao.mover(p, passo); _ordemPainel.value = arrumacao.ordem() }
+    fun alternarParte(p: PartePainel) { arrumacao.alternar(p); _escondidasPainel.value = arrumacao.escondidas() }
+
     private val _modoLista = MutableStateFlow(preferencias.modoLista)
     val modoLista: StateFlow<String> = _modoLista.asStateFlow()
     fun definirModoLista(v: String) { preferencias.modoLista = v; _modoLista.value = v }
@@ -533,6 +574,9 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         carregarContatos()
         carregarConversas()
         carregarPacotesIcones()
+        recarregarNotas()
+        carregarAparelhos()
+        _timerMudou.value++
         carregarDia()
         atualizarTempo()
         _usoConversas.value = usoConversasArq.ler()

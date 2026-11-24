@@ -22,7 +22,7 @@ class Acao(
 )
 
 /** Os atalhos de exemplo que aparecem com a barra vazia. */
-val EXEMPLOS = listOf("timer 5 min", "alarme 7:30", "12 × 3", "wi-fi", "lanterna")
+val EXEMPLOS = listOf("timer 20 min", "pomodoro", "nota comprar filamento", "tarefa ligar pro banco", "150 * 0.15", "lanterna", "wi-fi")
 
 /**
  * Entende o que foi escrito na barra de comando. Devolve as acoes na ordem de
@@ -32,6 +32,10 @@ fun interpretar(texto: String): List<Acao> {
     val t = semAcento(texto.trim())
     if (t.isEmpty()) return emptyList()
     val acoes = mutableListOf<Acao>()
+    notaOuTarefa(texto.trim())?.let(acoes::add)
+    if ("pomodoro".startsWith(t) && t.length >= 4) {
+        acoes += Acao("◷", "Pomodoro de 25 min", "foco; o Painel mostra quanto falta") { ctx -> TimerWolf(ctx).comecar(ctx, 25, "Pomodoro") }
+    }
     timer(t)?.let(acoes::add)
     alarme(t)?.let(acoes::add)
     conta(texto.trim())?.let(acoes::add)
@@ -62,13 +66,8 @@ private fun timer(t: String): Acao? {
         segundos % 60 == 0 -> "${segundos / 60} min"
         else -> "$segundos s"
     }
-    return Acao("◷", "Timer de $texto", "começa agora, no relógio do Android") { ctx ->
-        Apps.abrirTela(
-            ctx,
-            Intent(AlarmClock.ACTION_SET_TIMER)
-                .putExtra(AlarmClock.EXTRA_LENGTH, segundos)
-                .putExtra(AlarmClock.EXTRA_SKIP_UI, false),
-        )
+    return Acao("◷", "Timer de $texto", "começa agora; o Painel mostra quanto falta") { ctx ->
+        TimerWolf(ctx).comecarSegundos(ctx, segundos, "Timer de $texto")
     }
 }
 
@@ -87,6 +86,24 @@ private fun alarme(t: String): Acao? {
                 .putExtra(AlarmClock.EXTRA_SKIP_UI, false),
         )
     }
+}
+
+// ---------------------------------------------------------------- notas e tarefas
+
+private val NOTA = Regex("""^(nota|anotar|anota)\s+(.+)$""", RegexOption.IGNORE_CASE)
+private val TAREFA = Regex("""^(tarefa|lembrar|lembrete|fazer|todo)\s+(de\s+)?(.+)$""", RegexOption.IGNORE_CASE)
+
+/** "nota comprar filamento" vira uma nota; "tarefa ligar pro banco", uma tarefa (com caixinha). */
+private fun notaOuTarefa(texto: String): Acao? {
+    NOTA.find(texto)?.let { m ->
+        val t = m.groupValues[2].trim()
+        return Acao("✎", "Nota: $t", "guarda nas notas do Painel") { ctx -> Notas(ctx).adicionar(t, tarefa = false) }
+    }
+    TAREFA.find(texto)?.let { m ->
+        val t = m.groupValues[3].trim()
+        return Acao("☐", "Tarefa: $t", "entra na lista de tarefas do Painel") { ctx -> Notas(ctx).adicionar(t, tarefa = true) }
+    }
+    return null
 }
 
 // ---------------------------------------------------------------- contas

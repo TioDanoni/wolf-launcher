@@ -93,7 +93,7 @@ fun WidgetsTela(salvos: List<WidgetSalvo>, acoes: AcoesWidgets) {
                 }
             }
             for (w in salvos) {
-                key(w.id) { Widget(w, acoes) }
+                key(w.id) { WidgetAndroid(w, acoes) }
             }
             Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                 Row(
@@ -121,7 +121,7 @@ fun WidgetsTela(salvos: List<WidgetSalvo>, acoes: AcoesWidgets) {
 
 /** Um widget: o nome e o menu em cima, e a vista do app embaixo. */
 @Composable
-private fun Widget(w: WidgetSalvo, acoes: AcoesWidgets) {
+fun WidgetAndroid(w: WidgetSalvo, acoes: AcoesWidgets) {
     val contexto = LocalContext.current
     val info = remember(w.id) { Widgets.info(contexto, w.id) }
     var menu by remember { mutableStateOf(false) }
@@ -175,7 +175,7 @@ private fun Widget(w: WidgetSalvo, acoes: AcoesWidgets) {
 
 /** A lista dos widgets que os apps oferecem, com a previa de cada um. */
 @Composable
-private fun EscolherWidget(aoEscolher: (AppWidgetProviderInfo) -> Unit, aoFechar: () -> Unit) {
+fun EscolherWidget(aoEscolher: (AppWidgetProviderInfo) -> Unit, aoFechar: () -> Unit) {
     val contexto = LocalContext.current
     val lista by produceState(emptyList<AppWidgetProviderInfo>()) {
         value = withContext(Dispatchers.IO) { Widgets.disponiveis(contexto) }

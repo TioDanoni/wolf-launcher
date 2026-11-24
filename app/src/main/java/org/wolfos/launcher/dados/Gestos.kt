@@ -15,7 +15,7 @@ enum class AcaoGesto(val titulo: String) {
     TODOS_APPS("Todos os apps"),
     NOTIFICACOES("Notificações"),
     DIA("Seu dia"),
-    WIDGETS("Widgets"),
+    WIDGETS("Painel"),
     BLOQUEAR("Bloquear a tela"),
     NADA("Nada"),
 }

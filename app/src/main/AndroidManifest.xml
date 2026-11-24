@@ -12,6 +12,9 @@
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
     <!-- Seu dia e a faixa do agora: os proximos compromissos da agenda. -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <!-- Painel: a bateria dos fones e aparelhos Bluetooth conectados (opcional). -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <!-- Deslizar para baixo abre a cortina de notificacoes. -->
     <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
 
