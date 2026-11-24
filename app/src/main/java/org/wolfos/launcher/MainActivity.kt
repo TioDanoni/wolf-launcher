@@ -336,6 +336,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         abrirWidgets = { tela = Telas.WIDGETS },
         bloquear = if (doisToques) ({ Bloqueio.bloquear() }) else null,
         ligarBloqueio = { Bloqueio.pedirPermissao(contexto) },
+        permitirAvisos = if (avisosPermitidos) null else ({ Avisos.pedirPermissao(contexto) }),
         papelDeParede = { Apps.papelDeParede(contexto) },
         atualizar = vm::acaoAtualizacao,
         definirPadrao = definirPadrao,
@@ -403,8 +404,10 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         alternarFixada = vm::alternarFixada,
         abrirAviso = acoesAviso.abrir,
     )
-    val daMatilha = remember(conversas, fixadas, tipoMatilha, avisos) {
-        Conversas.matilha(conversas, fixadas, tipoMatilha, avisos)
+    // conversas que vem so com o numero ganham o nome da agenda
+    val conversasComNome = remember(conversas, contatos) { Conversas.comNomes(conversas, contatos) }
+    val daMatilha = remember(conversasComNome, fixadas, tipoMatilha, avisos) {
+        Conversas.matilha(conversasComNome, fixadas, tipoMatilha, avisos)
     }
     val acoesComando = AcoesComando(
         ligar = { if (Contatos.ligar(contexto, it)) voltarAoInicio() },
@@ -457,7 +460,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                     when {
                         !mostrarMatilha -> Unit
                         // com o WhatsApp: as conversas recentes (pessoas e grupos) e as fixadas
-                        conversas.isNotEmpty() -> FileiraConversas(daMatilha, conversas, fixadas, avisos, acoesConversa)
+                        conversas.isNotEmpty() -> FileiraConversas(daMatilha, conversasComNome, fixadas, avisos, acoesConversa)
                         // sem ele: as pessoas da agenda
                         else -> FileiraMatilha(pessoas, avisos, temContatos, acoesPessoa)
                     }
@@ -555,6 +558,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         editarVerbo = { verboEditando = it.name },
                         doisToques = vm::definirDoisToques,
                         ligarBloqueio = { Bloqueio.pedirPermissao(contexto) },
+        permitirAvisos = if (avisosPermitidos) null else ({ Avisos.pedirPermissao(contexto) }),
                         esconderVerbo = vm::esconderVerbo,
                         mostrarApp = { vm.esconder(it, false) },
                         abrirCodigo = { Apps.abrirTela(contexto, Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/TioDanoni/wolf-launcher"))) },

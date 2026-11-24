@@ -246,7 +246,7 @@ private fun MembroConversa(c: Conversa, fixada: Boolean, esperando: List<Aviso>,
                 }
             }
             Text(
-                c.nome.substringBefore(' ').ifEmpty { c.nome },
+                Conversas.nomeCurto(c),
                 color = if (esperando.isNotEmpty()) Texto else Texto.copy(alpha = 0.8f),
                 fontSize = 11.5.sp,
                 fontWeight = if (esperando.isNotEmpty()) FontWeight.SemiBold else FontWeight.Normal,

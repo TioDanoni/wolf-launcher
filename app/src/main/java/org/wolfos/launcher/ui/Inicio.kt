@@ -1,5 +1,6 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -136,6 +137,8 @@ class AcoesInicio(
     /** Bloquear a tela (nulo: dois toques desligado). Devolve falso se falta ligar o servico. */
     val bloquear: (() -> Boolean)? = null,
     val ligarBloqueio: () -> Unit = {},
+    /** Nulo quando o acesso as notificacoes ja esta ligado; senao, leva para ligar. */
+    val permitirAvisos: (() -> Unit)? = null,
 )
 
 /** O que esta esperando num verbo: a ultima notificacao e quantas tem. */
@@ -202,6 +205,9 @@ fun Inicio(
                 // a faixa do agora: primeiro o que falta para o launcher funcionar direito
                 Column(Modifier.padding(top = 18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (!ehPadrao) FaixaLimpa("⌂", "Usar o WolfLauncher como tela inicial", "Definir", acoes.definirPadrao)
+                    acoes.permitirAvisos?.let { permitir ->
+                        FaixaLimpa("♪", "Ligue as notificações: música, mensagens e Matilha", "Ligar", permitir)
+                    }
                     faixaAgora?.let { f -> FaixaLimpa(f.simbolo, f.texto, f.botao, f.acao) }
                     textoAtualizacao(atualizacao)?.let { (simbolo, texto, botao) -> FaixaLimpa(simbolo, texto, botao, acoes.atualizar) }
                 }
@@ -471,6 +477,7 @@ private fun FaixaLimpa(simbolo: String, texto: String, botao: String?, aoTocar: 
         "◷" -> Icons.Outlined.Event
         "⌂" -> Icons.Outlined.Home
         "!" -> Icons.Outlined.ErrorOutline
+        "♪" -> Icons.Outlined.NotificationsActive
         else -> Icons.Outlined.SystemUpdate
     }
     Row(

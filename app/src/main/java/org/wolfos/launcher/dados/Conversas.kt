@@ -107,6 +107,32 @@ object Conversas {
     }
 
     /**
+     * Conversa que o WhatsApp entrega so com o numero ("+55 19 9...") ganha o nome da
+     * agenda, procurando pelo numero do id ("5519...@s.whatsapp.net").
+     */
+    fun comNomes(conversas: List<Conversa>, contatos: List<Contato>): List<Conversa> {
+        if (contatos.isEmpty()) return conversas
+        val porFinal = HashMap<String, Contato>()
+        for (c in contatos) {
+            val d = c.numero.filter(Char::isDigit)
+            if (d.length >= 8) porFinal.putIfAbsent(d.takeLast(8), c)
+        }
+        return conversas.map { c ->
+            if (c.grupo || c.nome.any(Char::isLetter)) return@map c
+            val digitos = c.id.substringBefore('@').filter(Char::isDigit).ifEmpty { c.nome.filter(Char::isDigit) }
+            val achado = digitos.takeIf { it.length >= 8 }?.let { porFinal[it.takeLast(8)] }
+            if (achado != null) c.copy(nome = achado.nome) else c
+        }
+    }
+
+    /** O nome curto embaixo da foto: o primeiro nome, ou o final do numero ("…7777"). */
+    fun nomeCurto(c: Conversa): String {
+        if (c.nome.any(Char::isLetter)) return c.nome.trim().substringBefore(' ').ifEmpty { c.nome }
+        val d = c.nome.filter(Char::isDigit).ifEmpty { c.id.substringBefore('@').filter(Char::isDigit) }
+        return if (d.length >= 4) "…" + d.takeLast(4) else c.nome
+    }
+
+    /**
      * A fileira: as fixadas primeiro (na ordem em que foram fixadas), depois as que estao
      * esperando resposta, depois as mais recentes, sempre no filtro escolhido.
      */

@@ -273,6 +273,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         carregarContatos()
         runCatching { app.getSystemService(LauncherApps::class.java)?.registerCallback(atalhos) }
         carregarConversas()
+        if (Avisos.permitido(app)) Tocando.iniciar(app)
         TrabalhoAtualizacao.agendar(app)
     }
 
