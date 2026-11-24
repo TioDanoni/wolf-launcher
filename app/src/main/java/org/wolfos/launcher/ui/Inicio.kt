@@ -1,5 +1,9 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
 import org.wolfos.launcher.dados.Gesto
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -183,9 +187,39 @@ fun Inicio(
 ) {
     var menuAberto by remember { mutableStateOf(false) }
     var pedindoBloqueio by remember { mutableStateOf(false) }
+    var puxaoAlvo by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    val puxao by animateFloatAsState(puxaoAlvo, androidx.compose.animation.core.spring(stiffness = 1400f), label = "puxao")
+    val acoesAtuais by androidx.compose.runtime.rememberUpdatedState(acoes)
+    val limitePuxao = with(androidx.compose.ui.platform.LocalDensity.current) { 64.dp.toPx() }
+    val conexaoGestos = remember {
+        object : NestedScrollConnection {
+            var sobra = 0f
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput) {
+                    sobra += available.y
+                    when {
+                        sobra < -limitePuxao -> { sobra = 0f; acoesAtuais.gesto(Gesto.CIMA) }
+                        sobra > limitePuxao -> { sobra = 0f; acoesAtuais.gesto(Gesto.BAIXO) }
+                    }
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                sobra = 0f
+                when {
+                    available.y < -2200f -> acoesAtuais.gesto(Gesto.CIMA)
+                    available.y > 2200f -> acoesAtuais.gesto(Gesto.BAIXO)
+                }
+                return Velocity.Zero
+            }
+        }
+    }
 
     Box(Modifier.fillMaxSize()) {
         AreaDeGestos(
+            // a tela acompanha o dedo puxando para cima (resposta na hora, antes de soltar)
+            aoArrastar = { dx, dy -> puxaoAlvo = if (dy < 0 && kotlin.math.abs(dy) > kotlin.math.abs(dx)) dy else 0f },
             aoDeslizar = { dx, dy ->
                 // cada gesto faz o que a pessoa escolheu nos ajustes
                 when (direcao(dx, dy)) {
@@ -196,6 +230,8 @@ fun Inicio(
             },
             modifier = Modifier
                 .fillMaxSize()
+                // quando a lista rola e chega no fim, continuar puxando tambem abre (e o flick conta)
+                .nestedScroll(conexaoGestos)
                 .pointerInput(acoes.doisToquesAtivo) {
                     detectTapGestures(
                         onLongPress = { menuAberto = true },
@@ -211,7 +247,15 @@ fun Inicio(
                 maxHeight < 740.dp -> 0.82f
                 else -> 1f
             }
-            Column(Modifier.fillMaxSize().padding(horizontal = 18.dp)) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        translationY = (puxao * 0.35f).coerceAtLeast(-140.dp.toPx())
+                        alpha = 1f - (kotlin.math.abs(puxao) / 1400f).coerceAtMost(0.45f)
+                    }
+                    .padding(horizontal = 18.dp),
+            ) {
                 if (mostrarMarca) Marca(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp))
                 if (estiloRelogio == EstiloRelogio.CLASSICO) {
                     Relogio(clima.takeIf { tempo == null }, Modifier.padding(start = 6.dp, top = 22.dp))

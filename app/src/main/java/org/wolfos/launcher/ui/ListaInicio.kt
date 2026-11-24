@@ -165,7 +165,11 @@ fun ListaInicio(
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
                     )
                 }
-                LazyColumn(Modifier.fillMaxSize()) {
+                // a lista so rola quando nao cabe (ou numa letra): assim arrastar em cima dela
+                // abre o buscador em vez de "agarrar" tentando rolar
+                val estadoLista = androidx.compose.foundation.lazy.rememberLazyListState()
+                val rola = l != null || estadoLista.canScrollForward || estadoLista.canScrollBackward
+                LazyColumn(Modifier.fillMaxSize(), state = estadoLista, userScrollEnabled = rola) {
                     itemsIndexed(itens, key = { _, (a, s) -> a.chave + s }) { i, (app, sugerido) ->
                         Box(Modifier.entrada(i.coerceAtMost(10), atraso = 35L)) {
                             LinhaInicio(

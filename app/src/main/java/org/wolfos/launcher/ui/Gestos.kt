@@ -34,19 +34,41 @@ import kotlin.math.hypot
 fun AreaDeGestos(
     aoDeslizar: (dx: Float, dy: Float) -> Unit,
     modifier: Modifier = Modifier,
+    /** Enquanto o dedo arrasta: quanto andou (para a tela acompanhar o dedo). Zera ao soltar. */
+    aoArrastar: (dx: Float, dy: Float) -> Unit = { _, _ -> },
     conteudo: @Composable BoxScope.() -> Unit,
 ) {
-    // o pointerInput vive mais que uma composicao: le sempre a acao mais nova
+    // o pointerInput vive mais que uma composicao: le sempre as acoes mais novas
     val deslizar by rememberUpdatedState(aoDeslizar)
-    val minimo = with(LocalDensity.current) { 56.dp.toPx() }
+    val arrastar by rememberUpdatedState(aoArrastar)
+    val densidade = LocalDensity.current
+    // conta por distancia (56 dp) ou por um movimento rapido e curto (flick de 20 dp a 900 dp/s)
+    val minimo = with(densidade) { 56.dp.toPx() }
+    val minimoRapido = with(densidade) { 20.dp.toPx() }
+    val rapido = with(densidade) { 900.dp.toPx() }
     val total = remember { floatArrayOf(0f, 0f) }
+    val velocidade = remember { androidx.compose.ui.input.pointer.util.VelocityTracker() }
     Box(
         modifier.pointerInput(Unit) {
             detectDragGestures(
-                onDragStart = { total[0] = 0f; total[1] = 0f },
-                onDragEnd = { if (hypot(total[0], total[1]) >= minimo) deslizar(total[0], total[1]) },
-                onDragCancel = { total[0] = 0f; total[1] = 0f },
-            ) { _, d: Offset -> total[0] += d.x; total[1] += d.y }
+                onDragStart = { total[0] = 0f; total[1] = 0f; velocidade.resetTracking() },
+                onDragEnd = {
+                    val v = velocidade.calculateVelocity()
+                    val distancia = hypot(total[0], total[1])
+                    val veloz = hypot(v.x, v.y) >= rapido && distancia >= minimoRapido
+                    arrastar(0f, 0f)
+                    if (distancia >= minimo || veloz) {
+                        // no flick, a direcao vem da velocidade (mais fiel que a distancia curta)
+                        if (veloz && distancia < minimo) deslizar(v.x, v.y) else deslizar(total[0], total[1])
+                    }
+                },
+                onDragCancel = { total[0] = 0f; total[1] = 0f; arrastar(0f, 0f) },
+            ) { mudanca, d: Offset ->
+                total[0] += d.x
+                total[1] += d.y
+                velocidade.addPosition(mudanca.uptimeMillis, mudanca.position)
+                arrastar(total[0], total[1])
+            }
         },
         content = conteudo,
     )
