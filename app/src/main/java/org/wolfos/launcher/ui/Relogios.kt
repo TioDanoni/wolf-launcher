@@ -1,5 +1,6 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -218,6 +219,23 @@ fun RelogioGrande(estilo: EstiloRelogio, modifier: Modifier = Modifier, escala: 
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp, top = 6.dp)) {
                 Box(Modifier.size(width = 3.dp, height = 18.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Brush.verticalGradient(listOf(primaria, segunda))))
                 Text(data, color = Texto.copy(alpha = 0.75f), fontSize = 16.sp, style = TextStyle(shadow = SombraTexto), modifier = Modifier.padding(start = 10.dp))
+                // a bateria ao lado da data (le de novo a cada minuto, junto com o relogio)
+                val contexto = androidx.compose.ui.platform.LocalContext.current
+                val bateria = androidx.compose.runtime.remember(momento.minute) { org.wolfos.launcher.dados.Bateria.estado(contexto) }
+                bateria?.let { (pct, carregando) ->
+                    Text("   ·   ", color = Texto.copy(alpha = 0.4f), fontSize = 16.sp)
+                    if (carregando) {
+                        androidx.compose.material3.Icon(
+                            androidx.compose.material.icons.Icons.Outlined.Bolt, contentDescription = "Carregando",
+                            tint = primaria, modifier = Modifier.size(16.dp),
+                        )
+                    }
+                    Text(
+                        "$pct%",
+                        color = if (pct <= 15 && !carregando) androidx.compose.ui.graphics.Color(0xFFFF6B6B) else Texto.copy(alpha = 0.75f),
+                        fontSize = 16.sp, style = TextStyle(shadow = SombraTexto),
+                    )
+                }
             }
         }
 

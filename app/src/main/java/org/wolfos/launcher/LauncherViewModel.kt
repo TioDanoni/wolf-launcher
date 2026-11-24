@@ -239,6 +239,14 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         _fundoAnimado.value = v
     }
 
+    private val _iconesLinha = MutableStateFlow(preferencias.iconesLinha)
+    val iconesLinha: StateFlow<Boolean> = _iconesLinha.asStateFlow()
+
+    fun definirIconesLinha(v: Boolean) {
+        preferencias.iconesLinha = v
+        _iconesLinha.value = v
+    }
+
     private val _paleta = MutableStateFlow(Paleta.entries.firstOrNull { it.name == preferencias.paleta } ?: Paleta.LOBO)
     val paleta: StateFlow<Paleta> = _paleta.asStateFlow()
 

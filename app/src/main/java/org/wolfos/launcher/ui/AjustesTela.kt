@@ -99,6 +99,7 @@ class EstadoAjustes(
     val fundoAnimado: Boolean,
     val paleta: Paleta,
     val estiloRelogio: EstiloRelogio,
+    val iconesLinha: Boolean,
     val ritmo: Boolean,
     val modoNoite: Boolean,
     val janelaNoite: Pair<Int, Int>,
@@ -134,6 +135,7 @@ class AcoesAjustes(
     val fundoAnimado: (Boolean) -> Unit,
     val paleta: (Paleta) -> Unit,
     val estiloRelogio: (EstiloRelogio) -> Unit,
+    val iconesLinha: (Boolean) -> Unit,
     val ritmo: (Boolean) -> Unit,
     val modoNoite: (Boolean) -> Unit,
     val janelaNoite: (Int, Int) -> Unit,
@@ -269,6 +271,8 @@ private fun PaginaPrincipal(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (
     ) { acoes.fundoAnimado(!estado.fundoAnimado) }
 
     SecaoMenu("Tela inicial")
+    LinhaMenu(Icons.Outlined.Apps, "Ícones da lista", if (estado.iconesLinha) "em linha: brancos e finos" else "coloridos")
+    Pilulas(listOf("Coloridos", "Em linha"), if (estado.iconesLinha) 1 else 0) { acoes.iconesLinha(it == 1) }
     LinhaMenu(
         Icons.Outlined.PushPin, "Favoritos",
         if (estado.favoritos.isEmpty()) "nenhum fixado: o painel mostra os mais usados" else "${estado.favoritos.size} fixado(s) no painel",

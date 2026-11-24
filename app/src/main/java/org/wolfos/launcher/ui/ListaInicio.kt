@@ -80,6 +80,8 @@ fun ListaInicio(
     /** O pacote que esta tocando musica agora (ganha as barrinhas). */
     tocando: String?,
     acoes: AcoesApp,
+    /** Icones em linha (brancos, finos) em vez de coloridos. */
+    iconesLinha: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     var letra by remember { mutableStateOf<String?>(null) }
@@ -125,6 +127,7 @@ fun ListaInicio(
                                 ultima = ultimas[app.pacote],
                                 sugerido = sugerido,
                                 tocando = app.pacote == tocando,
+                                iconesLinha = iconesLinha,
                                 acoes = acoes,
                             )
                         }
@@ -144,7 +147,7 @@ fun ListaInicio(
 /** Uma linha da lista: icone, nome, a ultima mensagem embaixo e o numero de notificacoes. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun LinhaInicio(app: AppInfo, avisos: Int, ultima: String?, sugerido: Boolean, tocando: Boolean, acoes: AcoesApp) {
+private fun LinhaInicio(app: AppInfo, avisos: Int, ultima: String?, sugerido: Boolean, tocando: Boolean, iconesLinha: Boolean, acoes: AcoesApp) {
     val cor = MaterialTheme.colorScheme.primary
     var menu by remember(app.chave) { mutableStateOf(false) }
     val toque = remember { MutableInteractionSource() }
@@ -162,7 +165,7 @@ private fun LinhaInicio(app: AppInfo, avisos: Int, ultima: String?, sugerido: Bo
                 .padding(horizontal = 6.dp, vertical = 7.dp),
         ) {
             Box {
-                IconeApp(app, 34.dp)
+                IconeApp(app, if (iconesLinha) 30.dp else 34.dp, mono = iconesLinha)
                 if (avisos > 0) Selo(avisos, Modifier.align(Alignment.TopEnd).padding(start = 0.dp).size(17.dp).graphicsLayer { translationX = 8.dp.toPx(); translationY = (-6).dp.toPx() })
             }
             Column(Modifier.weight(1f).padding(start = 16.dp)) {

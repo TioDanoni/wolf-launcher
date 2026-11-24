@@ -224,8 +224,6 @@ fun Inicio(
                     faixaAgora?.let { f -> FaixaLimpa(f.simbolo, f.texto, f.botao, f.acao) }
                     textoAtualizacao(atualizacao)?.let { (simbolo, texto, botao) -> FaixaLimpa(simbolo, texto, botao, acoes.atualizar) }
                 }
-                // a busca em cima, logo depois do relogio e do clima
-                Box(Modifier.padding(top = 14.dp, end = 30.dp).entrada(4)) { BarraBusca(noite) { acoes.abrirComando("") } }
                 // a lista de apps (com o alfabeto na direita) ocupa o meio
                 Box(Modifier.weight(1f).fillMaxWidth().padding(top = 10.dp).clipToBounds()) { painel() }
                 if (player != null) {
@@ -338,58 +336,36 @@ private fun FaixaLimpa(simbolo: String, texto: String, botao: String?, aoTocar: 
         "♪" -> Icons.Outlined.NotificationsActive
         else -> Icons.Outlined.SystemUpdate
     }
+    // sem caixa: o icone, o texto e a acao sublinhada, flutuando sobre o wallpaper
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color.Black.copy(alpha = 0.30f))
-            .border(1.dp, Brush.horizontalGradient(listOf(cor.copy(alpha = 0.45f), MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f))), RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(14.dp))
             .clickable(onClick = aoTocar)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = 4.dp, vertical = 8.dp),
     ) {
-        Icon(icone, contentDescription = null, tint = cor, modifier = Modifier.size(22.dp))
+        Icon(icone, contentDescription = null, tint = cor, modifier = Modifier.size(21.dp))
         Text(
             texto,
             color = Texto.copy(alpha = 0.92f),
             fontSize = 14.5.sp,
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
+            style = TextStyle(shadow = SombraTexto),
             modifier = Modifier.weight(1f).padding(horizontal = 14.dp),
         )
         when (botao) {
             null -> Unit
             "Criar" -> Icon(Icons.Outlined.Add, contentDescription = botao, tint = cor, modifier = Modifier.size(22.dp))
-            else -> Text(botao, color = cor, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            else -> Text(
+                botao, color = cor, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                style = TextStyle(textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline, shadow = SombraTexto),
+            )
         }
     }
 }
 
-/** A busca embaixo: a lupa na cor de destaque, uma divisoria e o convite. */
-@Composable
-private fun BarraBusca(noite: Boolean, aoTocar: () -> Unit) {
-    val cor = MaterialTheme.colorScheme.primary
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(Superficie.copy(alpha = 0.82f))
-            .border(1.dp, Brush.horizontalGradient(listOf(cor.copy(alpha = 0.55f), MaterialTheme.colorScheme.secondary.copy(alpha = 0.25f))), RoundedCornerShape(20.dp))
-            .clickable(onClick = aoTocar)
-            .padding(horizontal = 16.dp)
-            .height(46.dp),
-    ) {
-        Icon(Icons.Outlined.Search, contentDescription = null, tint = cor, modifier = Modifier.size(22.dp))
-        Box(Modifier.padding(horizontal = 14.dp).width(1.dp).height(22.dp).background(Texto.copy(alpha = 0.2f)))
-        Text(
-            "Buscar apps, contatos ou comandos…",
-            color = TextoFraco,
-            fontSize = 14.5.sp,
-            maxLines = 1,
-        )
-    }
-}
 
 
 @Composable

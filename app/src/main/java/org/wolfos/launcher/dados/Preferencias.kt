@@ -41,6 +41,11 @@ class Preferencias(contexto: Context) {
         get() = prefs.getString("estilo_relogio", "VERTICAL") ?: "VERTICAL"
         set(v) = prefs.edit().putString("estilo_relogio", v).apply()
 
+    /** Os icones da lista da tela inicial em linha (brancos, finos) em vez de coloridos. */
+    var iconesLinha: Boolean
+        get() = prefs.getBoolean("icones_linha", false)
+        set(v) = prefs.edit().putBoolean("icones_linha", v).apply()
+
     /** A fileira da Matilha na tela inicial. */
     var mostrarMatilha: Boolean
         get() = prefs.getBoolean("mostrar_matilha", true)

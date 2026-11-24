@@ -354,7 +354,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         acoesAviso = acoesAviso,
     )
     val acoesInicio = AcoesInicio(
-        abrirComando = { texto -> comando = texto; tela = Telas.COMANDO },
+        abrirComando = { texto -> busca = texto; tela = Telas.GAVETA },
         abrirGaveta = { tela = Telas.GAVETA },
         abrirNotificacoes = { Apps.abrirNotificacoes(contexto) },
         abrirAjustes = { paginaAjustes = PaginasAjustes.PRINCIPAL; tela = Telas.AJUSTES },
@@ -395,7 +395,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         entrarEvento = { Agenda.entrar(contexto, it) },
         abrirAlarmes = abrirAlarmes,
         permitirAgenda = { pedidoAgenda.launch(Manifest.permission.READ_CALENDAR) },
-        buscar = { tela = Telas.COMANDO },
+        buscar = { busca = ""; tela = Telas.GAVETA },
         voltar = voltarAoInicio,
     )
     val acoesPessoa = AcoesPessoa(
@@ -477,6 +477,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                             ultimas = ultimas,
                             tocando = musica?.pacote?.takeIf { musica?.tocando == true },
                             acoes = acoesApp,
+                            iconesLinha = vm.iconesLinha.collectAsStateWithLifecycle().value,
                         )
                     },
                     clima = clima,
@@ -554,7 +555,14 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         vm.uso.hoje().asReversed().mapNotNull { porChave[it.chave] }.distinct().take(5)
                     }
                     val contagem = remember(avisos) { avisos.groupingBy { it.pacote }.eachCount() }
-                    Gaveta(apps, acoesApp, busca, { busca = it }, recentes, contagem)
+                    Gaveta(
+                        apps, acoesApp, busca, { busca = it }, recentes, contagem,
+                        aoAcao = { a -> a.executar(contexto); voltarAoInicio() },
+                        aoWeb = { Apps.buscarNaWeb(contexto, it); voltarAoInicio() },
+                        contatos = contatos,
+                        aoLigar = { if (Contatos.ligar(contexto, it)) voltarAoInicio() },
+                        aoMensagem = { if (Contatos.mensagem(contexto, it)) voltarAoInicio() },
+                    )
                 }
                 atual == Telas.COMANDO -> Comando(
                     apps = apps,
@@ -586,6 +594,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         compromissos = mostrarCompromissos,
                         fundoAnimado = fundoAnimado,
                         estiloRelogio = estiloRelogio,
+                        iconesLinha = vm.iconesLinha.collectAsStateWithLifecycle().value,
                         paleta = vm.paleta.collectAsStateWithLifecycle().value,
                         ritmo = ritmo,
                         modoNoite = modoNoite,
@@ -622,6 +631,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         compromissos = vm::definirCompromissos,
                         fundoAnimado = vm::definirFundoAnimado,
                         estiloRelogio = vm::definirEstiloRelogio,
+                        iconesLinha = vm::definirIconesLinha,
                         paleta = vm::definirPaleta,
                         ritmo = vm::definirRitmo,
                         modoNoite = vm::definirModoNoite,

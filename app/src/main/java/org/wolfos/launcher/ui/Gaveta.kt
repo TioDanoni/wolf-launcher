@@ -1,10 +1,22 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.material.icons.automirrored.outlined.Message
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import org.wolfos.launcher.dados.Acao
+import org.wolfos.launcher.dados.Contato
+import org.wolfos.launcher.dados.Contatos
+import org.wolfos.launcher.dados.interpretar
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -63,6 +75,14 @@ fun Gaveta(
     recentes: List<AppInfo> = emptyList(),
     /** Quantas notificacoes cada pacote tem. */
     avisos: Map<String, Int> = emptyMap(),
+    /** Fazer uma acao da busca (conta, timer, lanterna, ajuste do Android). */
+    aoAcao: (Acao) -> Unit = {},
+    /** Buscar o texto na web. */
+    aoWeb: (String) -> Unit = {},
+    /** As pessoas da agenda (a busca acha "mae" em "Mãe"). */
+    contatos: List<Contato> = emptyList(),
+    aoLigar: (Contato) -> Unit = {},
+    aoMensagem: (Contato) -> Unit = {},
 ) {
     val estado = rememberLazyListState()
     val escopo = rememberCoroutineScope()
@@ -78,23 +98,19 @@ fun Gaveta(
     // os apps entram em cascata so logo que a lista abre (nao a cada rolagem)
     val abriu = remember { System.currentTimeMillis() }
     val posicao = remember(lista) { lista.withIndex().associate { (i, a) -> a.chave to i } }
+    // a busca tambem entende contas, timer, alarme, lanterna e ajustes do Android
+    val acoesBusca = remember(busca) { if (busca.isBlank()) emptyList() else interpretar(busca) }
+    val pessoas = remember(busca, contatos) { if (busca.isBlank()) emptyList() else Contatos.filtrar(contatos, busca).take(3) }
 
     Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-        OutlinedTextField(
-            value = busca,
-            onValueChange = aoBuscar,
-            placeholder = { Text("Buscar apps") },
-            singleLine = true,
-            shape = RoundedCornerShape(50),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-            // Enter abre o primeiro resultado
-            keyboardActions = KeyboardActions(onGo = { lista.firstOrNull()?.let(acoes.abrir) }),
-            colors = OutlinedTextFieldDefaults.colors(
-                unfocusedBorderColor = Texto.copy(alpha = 0.12f),
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-            ),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
-        )
+        CampoBusca(busca, aoBuscar) {
+            // Enter: o primeiro app; sem app, a primeira acao; sem nada, a web
+            when {
+                lista.isNotEmpty() -> acoes.abrir(lista.first())
+                acoesBusca.isNotEmpty() -> aoAcao(acoesBusca.first())
+                busca.isNotBlank() -> aoWeb(busca.trim())
+            }
+        }
         Row(Modifier.fillMaxSize()) {
             LazyColumn(state = estado, modifier = Modifier.weight(1f).fillMaxHeight()) {
                 if (comRecentes) item(key = "recentes") { Recentes(recentes, acoes) }
@@ -112,12 +128,10 @@ fun Gaveta(
                         itens.forEach { app -> item(key = app.chave) { LinhaApp(app, avisos[app.pacote] ?: 0, acoes, posicao[app.chave] ?: 0, abriu) } }
                     }
                 } else {
+                    acoesBusca.forEach { a -> item(key = "acao:" + a.titulo) { LinhaAcao(a.simbolo, a.titulo, a.sub) { aoAcao(a) } } }
                     lista.forEach { app -> item(key = app.chave) { LinhaApp(app, avisos[app.pacote] ?: 0, acoes, posicao[app.chave] ?: 0, abriu) } }
-                    if (lista.isEmpty()) {
-                        item {
-                            Text("Nenhum app com esse nome.", color = TextoFraco, modifier = Modifier.padding(24.dp))
-                        }
-                    }
+                    pessoas.forEach { c -> item(key = "pessoa:${c.id}") { LinhaPessoa(c, { aoLigar(c) }, { aoMensagem(c) }) } }
+                    item(key = "web") { LinhaAcao("⌕", "Buscar “${busca.trim()}” na web", null) { aoWeb(busca.trim()) } }
                 }
             }
             if (agrupado && secoes.size > 1) {
@@ -182,6 +196,109 @@ private fun Recentes(apps: List<AppInfo>, acoes: AcoesApp) {
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * O campo de busca da lista de apps: uma linha fina (sem caixa), a lupa na cor da
+ * paleta e o texto grande. Ja abre com o teclado (deslizar para cima e escrever).
+ */
+@Composable
+private fun CampoBusca(texto: String, aoMudar: (String) -> Unit, aoEnviar: () -> Unit) {
+    val cor = MaterialTheme.colorScheme.primary
+    val foco = remember { androidx.compose.ui.focus.FocusRequester() }
+    var focado by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { runCatching { foco.requestFocus() } }
+    val linha by androidx.compose.animation.core.animateFloatAsState(if (focado) 1f else 0.35f, label = "linha")
+    Column(Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp, top = 14.dp, bottom = 6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.Icon(
+                androidx.compose.material.icons.Icons.Outlined.Search, contentDescription = null, tint = cor,
+                modifier = Modifier.size(22.dp),
+            )
+            androidx.compose.foundation.text.BasicTextField(
+                value = texto,
+                onValueChange = aoMudar,
+                singleLine = true,
+                textStyle = androidx.compose.ui.text.TextStyle(color = Texto, fontSize = 19.sp, fontWeight = FontWeight.Light),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(cor),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                keyboardActions = KeyboardActions(onGo = { aoEnviar() }),
+                decorationBox = { campo ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (texto.isEmpty()) Text("Buscar apps, contas, ajustes…", color = TextoFraco, fontSize = 19.sp, fontWeight = FontWeight.Light)
+                        campo()
+                    }
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                    .focusRequester(foco)
+                    .onFocusChanged { focado = it.isFocused },
+            )
+            if (texto.isNotEmpty()) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.size(36.dp).clip(CircleShape).clickable { aoMudar("") },
+                ) {
+                    androidx.compose.material3.Icon(
+                        androidx.compose.material.icons.Icons.Outlined.Close, contentDescription = "Limpar", tint = TextoFraco,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+        }
+        // a linha embaixo: o degrade da paleta, mais forte com o teclado aberto
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(1.5.dp)
+                .graphicsLayer { alpha = linha }
+                .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(cor, MaterialTheme.colorScheme.secondary, androidx.compose.ui.graphics.Color.Transparent))),
+        )
+    }
+}
+
+/** Uma acao da busca (conta, timer, ajuste, web): o simbolo na cor, o titulo e a explicacao. */
+@Composable
+private fun LinhaAcao(simbolo: String, titulo: String, sub: String?, aoTocar: () -> Unit) {
+    val cor = MaterialTheme.colorScheme.primary
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().clickable(onClick = aoTocar).padding(horizontal = 24.dp, vertical = 10.dp),
+    ) {
+        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+            Text(simbolo, color = cor, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        }
+        Column(Modifier.weight(1f).padding(start = 16.dp)) {
+            Text(titulo, color = Texto, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (!sub.isNullOrBlank()) Text(sub, color = TextoFraco, fontSize = 12.5.sp, maxLines = 1)
+        }
+    }
+}
+
+/** Uma pessoa achada na busca: a foto, o nome, o numero; tocar liga, o envelope manda mensagem. */
+@Composable
+private fun LinhaPessoa(c: Contato, aoLigar: () -> Unit, aoMensagem: () -> Unit) {
+    val cor = MaterialTheme.colorScheme.primary
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().clickable(onClick = aoLigar).padding(start = 24.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+    ) {
+        Avatar(c.nome, 40.dp, c.foto)
+        Column(Modifier.weight(1f).padding(start = 16.dp)) {
+            Text(c.nome, color = Texto, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(c.numero, color = TextoFraco, fontSize = 12.5.sp, maxLines = 1)
+        }
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.size(42.dp).clip(CircleShape).clickable(onClick = aoMensagem),
+        ) {
+            androidx.compose.material3.Icon(
+                androidx.compose.material.icons.Icons.AutoMirrored.Outlined.Message, contentDescription = "Mensagem", tint = cor,
+                modifier = Modifier.size(20.dp),
+            )
         }
     }
 }
