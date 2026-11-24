@@ -9,3 +9,8 @@ captures/
 *.aab
 *.keystore
 *.jks
+*.p12
+*.pem
+__pycache__/
+design/mockups/*
+!design/mockups/final/

@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Para listar os apps com icone na gaveta (so os que abrem pelo launcher). -->
+    <!-- Atualizacao sozinha: consultar o GitHub, baixar e instalar a versao nova por cima. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
+    <!-- Deslizar para baixo abre a cortina de notificacoes. -->
+    <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
+
+    <!-- Para listar os apps com icone (so os que abrem pelo launcher). -->
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
@@ -35,5 +42,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- O Android avisa aqui como foi a instalacao da versao nova. -->
+        <receiver
+            android:name=".atualizacao.ReceptorInstalacao"
+            android:exported="false" />
     </application>
 </manifest>

@@ -1,8 +1,6 @@
 package org.wolfos.launcher.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -20,7 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -36,7 +33,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -44,16 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import org.wolfos.launcher.dados.AppInfo
-import org.wolfos.launcher.dados.semAcento
-
-/** Os apps que batem com a busca: os que comecam com o termo primeiro. */
-fun filtrar(apps: List<AppInfo>, busca: String): List<AppInfo> {
-    val termo = semAcento(busca.trim())
-    if (termo.isEmpty()) return apps
-    return apps
-        .filter { semAcento(it.nome).contains(termo) }
-        .sortedBy { if (semAcento(it.nome).startsWith(termo)) 0 else 1 }
-}
+import org.wolfos.launcher.dados.filtrar
 
 /**
  * Todos os apps: a busca no topo, a lista em ordem alfabetica com a letra de cada
@@ -141,12 +128,11 @@ private fun LinhaApp(app: AppInfo, acoes: AcoesApp) {
                 .combinedClickable(onClick = { acoes.abrir(app) }, onLongClick = { menu = true })
                 .padding(horizontal = 24.dp, vertical = 9.dp),
         ) {
-            app.icone?.let { Image(it, contentDescription = null, modifier = Modifier.size(40.dp)) }
-                ?: Box(Modifier.size(40.dp).clip(CircleShape).background(Superficie))
+            IconeApp(app, 40.dp)
             Spacer(Modifier.width(16.dp))
             Text(app.nome, fontSize = 18.sp, color = Texto, maxLines = 1)
         }
-        MenuApp(app, menu, { menu = false }, acoes, naTelaInicial = false)
+        MenuApp(app, menu, { menu = false }, acoes)
     }
 }
 

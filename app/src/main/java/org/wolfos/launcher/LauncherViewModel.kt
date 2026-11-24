@@ -14,23 +14,38 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.wolfos.launcher.atualizacao.Atualizador
+import org.wolfos.launcher.atualizacao.EstadoAtualizacao
+import org.wolfos.launcher.atualizacao.TrabalhoAtualizacao
 import org.wolfos.launcher.dados.AppInfo
 import org.wolfos.launcher.dados.Apps
-import org.wolfos.launcher.dados.Favoritos
+import org.wolfos.launcher.dados.EscolhasVerbo
+import org.wolfos.launcher.dados.Icones
+import org.wolfos.launcher.dados.Preferencias
+import org.wolfos.launcher.dados.Verbo
 
-/** Estado do launcher: a lista de apps (lida fora da tela) e os favoritos. */
+/** Estado do launcher: os apps (lidos fora da tela), as escolhas de verbo e a atualizacao. */
 class LauncherViewModel(app: Application) : AndroidViewModel(app) {
-    private val favoritosArq = Favoritos(app)
+    private val escolhasArq = EscolhasVerbo(app)
+    val preferencias = Preferencias(app)
 
     private val _apps = MutableStateFlow<List<AppInfo>>(emptyList())
     val apps: StateFlow<List<AppInfo>> = _apps.asStateFlow()
 
-    private val _favoritos = MutableStateFlow(favoritosArq.ler())
-    val favoritos: StateFlow<List<String>> = _favoritos.asStateFlow()
+    private val _escolhas = MutableStateFlow(escolhasArq.ler())
+    val escolhas: StateFlow<Map<String, String>> = _escolhas.asStateFlow()
+
+    private val _instalarSozinho = MutableStateFlow(preferencias.instalarSozinho)
+    val instalarSozinho: StateFlow<Boolean> = _instalarSozinho.asStateFlow()
+
+    val atualizacao: StateFlow<EstadoAtualizacao> = Atualizador.estado
 
     // instalou, removeu ou atualizou um app: a lista acompanha
     private val pacotes = object : BroadcastReceiver() {
-        override fun onReceive(contexto: Context, intent: Intent) = recarregar()
+        override fun onReceive(contexto: Context, intent: Intent) {
+            intent.data?.schemeSpecificPart?.let(Icones::esquecer)
+            recarregar()
+        }
     }
 
     init {
@@ -43,41 +58,56 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         // as mensagens de pacote sao do sistema: chegam mesmo com o receptor fechado para os outros apps
         ContextCompat.registerReceiver(app, pacotes, filtro, ContextCompat.RECEIVER_NOT_EXPORTED)
         recarregar()
+        TrabalhoAtualizacao.agendar(app)
     }
 
     fun recarregar() {
         viewModelScope.launch {
-            val lista = withContext(Dispatchers.IO) { Apps.carregar(getApplication()) }
-            _apps.value = lista
-            // favorito de app desinstalado sai sozinho
-            val existentes = lista.map { it.chave }.toSet()
-            val limpos = _favoritos.value.filter { it in existentes }
-            if (lista.isNotEmpty() && limpos != _favoritos.value) definirFavoritos(limpos)
+            _apps.value = withContext(Dispatchers.IO) { Apps.carregar(getApplication()) }
         }
     }
 
-    fun ehFavorito(app: AppInfo) = app.chave in _favoritos.value
-
-    fun alternarFavorito(app: AppInfo) {
-        val atual = _favoritos.value
-        definirFavoritos(if (app.chave in atual) atual - app.chave else atual + app.chave)
+    fun mudarVerbo(app: AppInfo, verbo: Verbo?) {
+        escolhasArq.gravar(app.chave, verbo)
+        _escolhas.value = escolhasArq.ler()
     }
 
-    fun moverFavorito(app: AppInfo, passo: Int) {
-        val lista = _favoritos.value.toMutableList()
-        val i = lista.indexOf(app.chave)
-        val j = i + passo
-        if (i < 0 || j !in lista.indices) return
-        lista[i] = lista[j].also { lista[j] = lista[i] }
-        definirFavoritos(lista)
+    /** O launcher voltou para a tela: procura versao nova se faz tempo que nao procura. */
+    fun aoVoltar() {
+        viewModelScope.launch {
+            Atualizador.aoVoltar(getApplication())
+            val passou = System.currentTimeMillis() - preferencias.ultimaVerificacao
+            if (passou > SEIS_HORAS) Atualizador.verificar(getApplication())
+        }
     }
 
-    private fun definirFavoritos(lista: List<String>) {
-        _favoritos.value = lista
-        favoritosArq.gravar(lista)
+    fun procurarAtualizacao(aoTerminar: (achou: Boolean) -> Unit = {}) {
+        viewModelScope.launch { aoTerminar(Atualizador.verificar(getApplication()) != null) }
+    }
+
+    /** O botao do aviso: faz o que o momento pede (atualizar, dar permissao, concluir). */
+    fun acaoAtualizacao() {
+        val contexto = getApplication<Application>()
+        when (val e = atualizacao.value) {
+            is EstadoAtualizacao.Disponivel -> viewModelScope.launch { Atualizador.baixarEInstalar(contexto, e.versao) }
+            is EstadoAtualizacao.Erro -> e.versao?.let { v -> viewModelScope.launch { Atualizador.baixarEInstalar(contexto, v) } }
+            is EstadoAtualizacao.PrecisaPermissao -> Atualizador.pedirPermissao(contexto)
+            is EstadoAtualizacao.Confirmar ->
+                if (!Apps.abrirTela(contexto, e.intent)) viewModelScope.launch { Atualizador.baixarEInstalar(contexto, e.versao) }
+            else -> Unit
+        }
+    }
+
+    fun definirInstalarSozinho(valor: Boolean) {
+        preferencias.instalarSozinho = valor
+        _instalarSozinho.value = valor
     }
 
     override fun onCleared() {
         getApplication<Application>().unregisterReceiver(pacotes)
+    }
+
+    private companion object {
+        const val SEIS_HORAS = 6 * 60 * 60 * 1000L
     }
 }

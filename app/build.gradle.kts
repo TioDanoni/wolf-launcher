@@ -4,6 +4,15 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// A versao vem da tag no GitHub (v0.2.0 -> -Pversao=0.2.0); sem ela, a de desenvolvimento.
+val versao = (findProperty("versao") as String?)?.removePrefix("v") ?: "0.1.0"
+val codigoVersao = versao.split('.').map { it.takeWhile(Char::isDigit).toIntOrNull() ?: 0 }
+    .let { (it.getOrElse(0) { 0 } * 10000) + (it.getOrElse(1) { 0 } * 100) + it.getOrElse(2) { 0 } }
+
+// A chave de assinatura: a mesma em toda versao, senao o Android nao aceita atualizar por cima.
+// No GitHub vem dos segredos; no PC, das variaveis WOLF_CHAVE, WOLF_CHAVE_SENHA.
+val arquivoChave = System.getenv("WOLF_CHAVE")?.let(::file)?.takeIf { it.exists() }
+
 android {
     namespace = "org.wolfos.launcher"
     compileSdk = 35
@@ -12,8 +21,20 @@ android {
         applicationId = "org.wolfos.launcher"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = codigoVersao
+        versionName = versao
+    }
+
+    signingConfigs {
+        if (arquivoChave != null) {
+            create("wolf") {
+                storeFile = arquivoChave
+                storeType = "pkcs12"
+                storePassword = System.getenv("WOLF_CHAVE_SENHA")
+                keyAlias = "wolflauncher"
+                keyPassword = System.getenv("WOLF_CHAVE_SENHA")
+            }
+        }
     }
 
     buildTypes {
@@ -21,6 +42,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.findByName("wolf")
         }
     }
     compileOptions {
@@ -32,6 +54,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -40,6 +63,7 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.work.runtime)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)

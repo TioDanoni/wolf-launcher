@@ -1,0 +1,70 @@
+# A cada push: compila para ver se esta tudo certo.
+# A cada versao nova (tag v*): compila o APK assinado e publica numa Release. O
+# WolfLauncher no celular consulta a ultima Release e se atualiza sozinho.
+name: APK
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Chave de assinatura
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          CHAVE_B64: ${{ secrets.WOLF_CHAVE_B64 }}
+        run: |
+          test -n "$CHAVE_B64" || { echo "Falta o segredo WOLF_CHAVE_B64"; exit 1; }
+          echo "$CHAVE_B64" | base64 -d > "$RUNNER_TEMP/wolf.p12"
+          echo "WOLF_CHAVE=$RUNNER_TEMP/wolf.p12" >> "$GITHUB_ENV"
+
+      - name: Compilar
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: gradle --no-daemon assembleDebug
+
+      - name: Compilar a versao assinada
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          WOLF_CHAVE_SENHA: ${{ secrets.WOLF_CHAVE_SENHA }}
+        run: |
+          gradle --no-daemon assembleRelease -Pversao="${GITHUB_REF_NAME#v}"
+          cp app/build/outputs/apk/release/app-release.apk WolfLauncher.apk
+
+      - name: Publicar a Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          gh release create "$GITHUB_REF_NAME" WolfLauncher.apk \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "WolfLauncher ${GITHUB_REF_NAME#v}" --generate-notes
+
+      - name: Guardar o APK de teste
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: WolfLauncher-debug
+          path: app/build/outputs/apk/debug/app-debug.apk

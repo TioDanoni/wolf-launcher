@@ -1,5 +1,6 @@
 package org.wolfos.launcher.dados
 
+import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -7,25 +8,31 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.core.graphics.drawable.toBitmap
+import androidx.compose.runtime.Immutable
 import java.text.Collator
 import java.text.Normalizer
 import java.util.Locale
 
-/** Um app que abre pelo launcher (cada atividade com icone conta como um). */
+/**
+ * Um app que abre pelo launcher (cada atividade com icone conta como um).
+ * O icone nao fica aqui: ele e carregado so quando aparece na tela (ver [Icones]).
+ */
+@Immutable
 data class AppInfo(
     val nome: String,
     val pacote: String,
     val atividade: String,
-    val icone: ImageBitmap?,
+    /** Categoria que o proprio app declara (ApplicationInfo.CATEGORY_*), ou -1. */
+    val categoria: Int,
 ) {
-    /** Chave estavel (pacote/atividade), usada nos favoritos. */
-    val chave: String get() = "$pacote/$atividade"
+    /** Chave estavel (pacote/atividade), usada nas escolhas da pessoa. */
+    val chave: String = "$pacote/$atividade"
+
+    /** O nome sem acento e em minusculas, calculado uma vez so (a busca usa a cada letra). */
+    val busca: String = semAcento(nome)
 
     /** Letra da secao na gaveta: A-Z sem acento, ou # para o resto. */
-    val letra: String get() = letraDe(nome)
+    val letra: String = letraDe(nome)
 }
 
 /** Texto sem acento e em minusculas, para buscar e agrupar ("Câmera" -> "camera"). */
@@ -39,9 +46,16 @@ fun letraDe(nome: String): String {
     return if (c in 'A'..'Z') c.toString() else "#"
 }
 
-object Apps {
-    private const val TAMANHO_ICONE = 112
+/** Os apps que batem com a busca: os que comecam com o termo primeiro. */
+fun filtrar(apps: List<AppInfo>, busca: String): List<AppInfo> {
+    val termo = semAcento(busca.trim())
+    if (termo.isEmpty()) return apps
+    return apps
+        .filter { it.busca.contains(termo) }
+        .sortedBy { if (it.busca.startsWith(termo)) 0 else 1 }
+}
 
+object Apps {
     /** Todos os apps com icone, em ordem alfabetica (pt-BR), menos o proprio launcher. */
     fun carregar(contexto: Context): List<AppInfo> {
         val pm = contexto.packageManager
@@ -56,14 +70,11 @@ object Apps {
         return lista
             .filter { it.activityInfo.packageName != contexto.packageName }
             .map { r ->
-                val icone = runCatching {
-                    r.loadIcon(pm).toBitmap(TAMANHO_ICONE, TAMANHO_ICONE).asImageBitmap()
-                }.getOrNull()
                 AppInfo(
                     nome = r.loadLabel(pm).toString(),
                     pacote = r.activityInfo.packageName,
                     atividade = r.activityInfo.name,
-                    icone = icone,
+                    categoria = r.activityInfo.applicationInfo.category,
                 )
             }
             .distinctBy { it.chave }
@@ -87,16 +98,33 @@ object Apps {
     }.isSuccess
 
     fun informacoes(contexto: Context, app: AppInfo) {
-        contexto.startActivity(
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${app.pacote}"))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        )
+        abrirTela(contexto, Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${app.pacote}")))
     }
 
     fun desinstalar(contexto: Context, app: AppInfo) {
-        contexto.startActivity(
-            Intent(Intent.ACTION_DELETE, Uri.parse("package:${app.pacote}"))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        )
+        abrirTela(contexto, Intent(Intent.ACTION_DELETE, Uri.parse("package:${app.pacote}")))
     }
+
+    fun buscarNaWeb(contexto: Context, termo: String) {
+        if (!abrirTela(contexto, Intent(Intent.ACTION_WEB_SEARCH).putExtra("query", termo))) {
+            abrirTela(contexto, Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=" + Uri.encode(termo))))
+        }
+    }
+
+    fun papelDeParede(contexto: Context) {
+        abrirTela(contexto, Intent.createChooser(Intent(Intent.ACTION_SET_WALLPAPER), "Papel de parede"))
+    }
+
+    /** Abre a cortina de notificacoes (API escondida, mas os launchers usam ha anos). */
+    @SuppressLint("WrongConstant", "PrivateApi")
+    fun abrirNotificacoes(contexto: Context) {
+        runCatching {
+            val barra = contexto.getSystemService("statusbar")
+            barra.javaClass.getMethod("expandNotificationsPanel").invoke(barra)
+        }
+    }
+
+    fun abrirTela(contexto: Context, intent: Intent): Boolean = runCatching {
+        contexto.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }.isSuccess
 }
