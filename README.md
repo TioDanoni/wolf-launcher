@@ -24,6 +24,19 @@ degradês da paleta, e pensado para o polegar. Kotlin + Jetpack Compose, pacote
   ajustes do Android.
 - **Gestos:** para cima, todos os apps (com o alfabeto em onda); para baixo,
   notificações; para a direita, seu dia; para a esquerda, widgets; dois toques bloqueiam.
+- **Painel:** clima e bateria (do celular e dos fones), lanterna, timer, Pomodoro,
+  cronômetro, calculadora, notas e tarefas, música, agenda, armazenamento e widgets;
+  as partes se reordenam e escondem.
+- **Seu dia:** tempo de tela, desbloqueios e tarefas; a linha do tempo (antes, agora,
+  depois) com as sessões de uso agrupadas, sugestões, ligações perdidas e a agenda.
+- **Wolf Insights:** a semana de uso, a comparação com a anterior, o horário de pico e
+  os apps que mais tomam tempo ("quanto usei o celular?" na busca).
+- **Rotinas:** trabalho, casa, academia, viagem e descanso; ligam no horário ou à mão
+  ("modo trabalho") e sobem os apps de cada uma.
+- **Modo Caça:** o foco; os apps que distraem somem da tela inicial por um tempo
+  ("caça 45 min").
+- **Wolf Sense:** aprende o que você abre por hora e por dia da semana, sem IA e sem
+  nada sair do celular.
 - **Modo noite**, paletas de cores, fundo animado e **atualização sozinha** pelo GitHub.
 
 ## Atualizações
