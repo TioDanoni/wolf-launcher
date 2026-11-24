@@ -58,6 +58,7 @@ import org.wolfos.launcher.atualizacao.Atualizador
 import org.wolfos.launcher.atualizacao.EstadoAtualizacao
 import org.wolfos.launcher.dados.AppInfo
 import org.wolfos.launcher.dados.Cidade
+import org.wolfos.launcher.dados.FonteMatilha
 import org.wolfos.launcher.dados.TipoMatilha
 import org.wolfos.launcher.dados.Verbo
 
@@ -72,6 +73,8 @@ class EstadoAjustes(
     val mostrarMatilha: Boolean,
     val tipoMatilha: TipoMatilha,
     val matilhaPeloWhatsapp: Boolean,
+    val fonteMatilha: FonteMatilha,
+    val fontesMatilha: List<FonteMatilha>,
     val iconesNosVerbos: Boolean,
     val mostrarPlayer: Boolean,
     /** O que o player esta vendo agora ("tocando: X (app)", "nenhum app de musica aberto"...). */
@@ -108,6 +111,7 @@ class AcoesAjustes(
     val papelDeParede: () -> Unit,
     val mostrarMatilha: (Boolean) -> Unit,
     val tipoMatilha: (TipoMatilha) -> Unit,
+    val fonteMatilha: (FonteMatilha) -> Unit,
     val iconesNosVerbos: (Boolean) -> Unit,
     val mostrarPlayer: (Boolean) -> Unit,
     val tempoLigado: (Boolean) -> Unit,
@@ -211,9 +215,18 @@ private fun PaginaPrincipal(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (
         else "as pessoas da agenda (com o WhatsApp, viram as conversas)",
         fim = { ChaveWolf(estado.mostrarMatilha, acoes.mostrarMatilha) },
     ) { acoes.mostrarMatilha(!estado.mostrarMatilha) }
-    if (estado.mostrarMatilha && estado.matilhaPeloWhatsapp) {
-        Pilulas(TipoMatilha.entries.map { it.titulo }, TipoMatilha.entries.indexOf(estado.tipoMatilha)) {
-            acoes.tipoMatilha(TipoMatilha.entries[it])
+    if (estado.mostrarMatilha) {
+        if (estado.fontesMatilha.size > 1) {
+            Text("De onde vêm", color = TextoFraco, fontSize = 12.5.sp, modifier = Modifier.padding(start = 78.dp, bottom = 6.dp))
+            Pilulas(estado.fontesMatilha.map { it.titulo }, estado.fontesMatilha.indexOf(estado.fonteMatilha)) {
+                acoes.fonteMatilha(estado.fontesMatilha[it])
+            }
+        }
+        if (estado.matilhaPeloWhatsapp) {
+            Text("Mostrar", color = TextoFraco, fontSize = 12.5.sp, modifier = Modifier.padding(start = 78.dp, top = 4.dp, bottom = 6.dp))
+            Pilulas(TipoMatilha.entries.map { it.titulo }, TipoMatilha.entries.indexOf(estado.tipoMatilha)) {
+                acoes.tipoMatilha(TipoMatilha.entries[it])
+            }
         }
     }
     LinhaMenu(Icons.Outlined.Wallpaper, "Papel de parede", "a cor de destaque vem dele (Android 12+)", fim = { Seta() }, aoTocar = acoes.papelDeParede)

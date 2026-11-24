@@ -28,6 +28,14 @@ data class Conversa(
     val busca: String = semAcento(nome)
 }
 
+/** De onde vem a Matilha. */
+enum class FonteMatilha(val titulo: String, val pacotes: List<String>) {
+    WHATSAPP("WhatsApp", listOf("com.whatsapp")),
+    BUSINESS("WhatsApp Business", listOf("com.whatsapp.w4b")),
+    OS_DOIS("Os dois", listOf("com.whatsapp", "com.whatsapp.w4b")),
+    AGENDA("Agenda do celular", emptyList()),
+}
+
 /** Quais conversas a Matilha mostra. */
 enum class TipoMatilha(val titulo: String) {
     TODOS("Pessoas e grupos"),
@@ -136,6 +144,20 @@ object Conversas {
      * A fileira: as fixadas primeiro (na ordem em que foram fixadas), depois as que estao
      * esperando resposta, depois as mais recentes, sempre no filtro escolhido.
      */
+    /** As fontes que fazem sentido neste celular (so os WhatsApps instalados, e a agenda). */
+    fun fontesPossiveis(contexto: Context): List<FonteMatilha> {
+        val tem = PACOTES.filter { p -> runCatching { contexto.packageManager.getPackageInfo(p, 0) }.isSuccess }
+        return buildList {
+            if ("com.whatsapp" in tem) add(FonteMatilha.WHATSAPP)
+            if ("com.whatsapp.w4b" in tem) add(FonteMatilha.BUSINESS)
+            if (tem.size == 2) add(FonteMatilha.OS_DOIS)
+            add(FonteMatilha.AGENDA)
+        }
+    }
+
+    /** Sem escolha: o WhatsApp pessoal, se tiver; senao o Business; senao a agenda. */
+    fun fontePadrao(contexto: Context): FonteMatilha = fontesPossiveis(contexto).first()
+
     fun matilha(todas: List<Conversa>, fixadas: List<String>, tipo: TipoMatilha, avisos: List<Aviso>, maximo: Int = 10): List<Conversa> {
         val porChave = todas.associateBy { it.chave }
         val doTipo = { c: Conversa ->
@@ -165,4 +187,9 @@ class Fixadas(contexto: Context) {
     var tipo: TipoMatilha
         get() = TipoMatilha.entries.firstOrNull { it.name == prefs.getString("tipo", null) } ?: TipoMatilha.TODOS
         set(v) = prefs.edit().putString("tipo", v.name).apply()
+
+    /** Nulo: a pessoa ainda nao escolheu (o launcher decide pelo que esta instalado). */
+    var fonte: FonteMatilha?
+        get() = FonteMatilha.entries.firstOrNull { it.name == prefs.getString("fonte", null) }
+        set(v) = prefs.edit().putString("fonte", v?.name).apply()
 }

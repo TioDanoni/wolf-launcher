@@ -35,6 +35,7 @@ import org.wolfos.launcher.dados.Contatos
 import org.wolfos.launcher.dados.Conversa
 import org.wolfos.launcher.dados.Conversas
 import org.wolfos.launcher.dados.Fixadas
+import org.wolfos.launcher.dados.FonteMatilha
 import org.wolfos.launcher.dados.TipoMatilha
 import org.wolfos.launcher.dados.EscolhasVerbo
 import org.wolfos.launcher.dados.Icones
@@ -296,6 +297,17 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         val nova = if (c.chave in atual) atual - c.chave else atual + c.chave
         fixadasArq.gravar(nova)
         _fixadas.value = nova
+    }
+
+    private val _fonteMatilha = MutableStateFlow(fixadasArq.fonte ?: Conversas.fontePadrao(app))
+    val fonteMatilha: StateFlow<FonteMatilha> = _fonteMatilha.asStateFlow()
+
+    /** As opcoes de fonte deste celular (os WhatsApps instalados e a agenda). */
+    val fontesMatilha: List<FonteMatilha> = Conversas.fontesPossiveis(app)
+
+    fun definirFonteMatilha(f: FonteMatilha) {
+        fixadasArq.fonte = f
+        _fonteMatilha.value = f
     }
 
     fun definirTipoMatilha(tipo: TipoMatilha) {

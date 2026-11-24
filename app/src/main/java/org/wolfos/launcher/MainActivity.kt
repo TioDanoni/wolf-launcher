@@ -50,6 +50,7 @@ import org.wolfos.launcher.dados.Widgets
 import org.wolfos.launcher.dados.Atalhos
 import org.wolfos.launcher.dados.Contatos
 import org.wolfos.launcher.dados.Conversas
+import org.wolfos.launcher.dados.FonteMatilha
 import org.wolfos.launcher.dados.Evento
 import org.wolfos.launcher.dados.Matilha
 import org.wolfos.launcher.dados.Padrao
@@ -418,7 +419,11 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         abrirAviso = acoesAviso.abrir,
     )
     // conversas que vem so com o numero ganham o nome da agenda
-    val conversasComNome = remember(conversas, contatos) { Conversas.comNomes(conversas, contatos) }
+    // so as conversas do WhatsApp escolhido (as fixadas ficam sempre)
+    val fonteMatilha by vm.fonteMatilha.collectAsStateWithLifecycle()
+    val conversasComNome = remember(conversas, contatos, fonteMatilha, fixadas) {
+        Conversas.comNomes(conversas.filter { it.pacote in fonteMatilha.pacotes || it.chave in fixadas }, contatos)
+    }
     val daMatilha = remember(conversasComNome, fixadas, tipoMatilha, avisos) {
         Conversas.matilha(conversasComNome, fixadas, tipoMatilha, avisos)
     }
@@ -492,7 +497,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                     when {
                         !mostrarMatilha -> Unit
                         // com o WhatsApp: as conversas recentes (pessoas e grupos) e as fixadas
-                        conversas.isNotEmpty() -> FileiraConversas(daMatilha, conversasComNome, fixadas, avisos, acoesConversa)
+                        fonteMatilha != FonteMatilha.AGENDA && conversasComNome.isNotEmpty() -> FileiraConversas(daMatilha, conversasComNome, fixadas, avisos, acoesConversa)
                         // sem ele: as pessoas da agenda
                         else -> FileiraMatilha(pessoas, avisos, temContatos, acoesPessoa)
                     }
@@ -550,7 +555,9 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         temContatos = temContatos,
                         mostrarMatilha = mostrarMatilha,
                         tipoMatilha = tipoMatilha,
-                        matilhaPeloWhatsapp = conversas.isNotEmpty(),
+                        matilhaPeloWhatsapp = fonteMatilha != FonteMatilha.AGENDA && conversas.isNotEmpty(),
+                        fonteMatilha = fonteMatilha,
+                        fontesMatilha = vm.fontesMatilha,
                         iconesNosVerbos = iconesNosVerbos,
                         mostrarPlayer = mostrarPlayer,
                         detalhePlayer = detalheMusica,
@@ -587,6 +594,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         papelDeParede = { Apps.papelDeParede(contexto) },
                         mostrarMatilha = vm::definirMostrarMatilha,
                         tipoMatilha = vm::definirTipoMatilha,
+                        fonteMatilha = vm::definirFonteMatilha,
                         iconesNosVerbos = vm::definirIconesNosVerbos,
                         mostrarPlayer = vm::definirMostrarPlayer,
                         tempoLigado = vm::definirTempoLigado,
