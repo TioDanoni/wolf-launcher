@@ -38,6 +38,12 @@ Kotlin + Jetpack Compose. Pacote `org.wolfos.launcher`, Android 8.0 (API 26) ou 
 - **Menus:** segurar um app abre os atalhos dele, mudar de verbo, renomear, esconder,
   informações e desinstalar; segurar um verbo deixa renomear, escolher os apps e esconder;
   segurar a tela abre o menu do launcher.
+- **Responder** mensagens na tela do verbo (pela ação da própria notificação) e marcar
+  como lida.
+- **Widgets** num painel (deslizar para a esquerda): adicionar com prévia, maior/menor,
+  remover.
+- **Tocar duas vezes** num espaço vazio bloqueia a tela (serviço de acessibilidade que
+  não lê nada da tela).
 - **Ajustes** em seções, com páginas para verbos, apps escondidos e gestos, e o status das
   permissões.
 - **Gestos:** para cima, todos os apps (por letra, com a barra de letras); para baixo, a
@@ -46,9 +52,6 @@ Kotlin + Jetpack Compose. Pacote `org.wolfos.launcher`, Android 8.0 (API 26) ou 
 
 ## Próximos passos
 
-- Responder mensagens direto da tela do verbo.
-- Painel de widgets (deslizar para a esquerda).
-- Tocar duas vezes para bloquear a tela.
 - Pacotes de ícones.
 
 ## Atualizações
@@ -110,6 +113,9 @@ app/src/main/java/org/wolfos/launcher/
   ui/Folha.kt              a folha dos menus e as linhas com ícone
   ui/MenuApp.kt            segurar um app
   ui/EditarVerbo.kt        segurar um verbo
+  ui/WidgetsTela.kt        o painel de widgets
+  dados/Widgets.kt         hospedar os widgets (ids, alturas)
+  bloqueio/                o serviço de bloquear com dois toques
   ui/Comum.kt, Tema.kt     peças repetidas, cores do WolfOS e a aurora
 design/                    scripts que geram os mockups (python3 design/gerar_final.py)
 ```
