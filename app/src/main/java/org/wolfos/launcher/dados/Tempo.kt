@@ -146,3 +146,73 @@ object Tempo {
         }
     }
 }
+
+/** Um dia da previsao da semana. */
+@Immutable
+data class DiaPrevisto(val data: java.time.LocalDate, val codigo: Int, val maxima: Int, val minima: Int, val chuva: Int)
+
+/** Uma hora da previsao das proximas horas. */
+@Immutable
+data class HoraPrevista(val hora: java.time.LocalDateTime, val graus: Int, val codigo: Int, val dia: Boolean, val chuva: Int)
+
+/** A previsao completa: as proximas horas, os 7 dias e o nascer/por do sol de hoje. */
+@Immutable
+data class Semana(
+    val cidade: String,
+    val horas: List<HoraPrevista>,
+    val dias: List<DiaPrevisto>,
+    val nascer: java.time.LocalDateTime?,
+    val por: java.time.LocalDateTime?,
+)
+
+/** A previsao da semana, pelo Open-Meteo (so quando a pessoa abre o clima). */
+suspend fun Tempo.semana(c: Context): Semana? = withContext(Dispatchers.IO) {
+    val cidade = cidade(c) ?: return@withContext null
+    runCatching {
+        val f = if (fahrenheit(c)) "&temperature_unit=fahrenheit" else ""
+        val url = "https://api.open-meteo.com/v1/forecast?latitude=${cidade.lat}&longitude=${cidade.lon}" +
+            "&hourly=temperature_2m,weather_code,is_day,precipitation_probability" +
+            "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset" +
+            "&timezone=auto&forecast_days=7$f"
+        val con = (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 10_000
+            readTimeout = 15_000
+            setRequestProperty("User-Agent", "WolfLauncher")
+        }
+        val j = try {
+            JSONObject(con.inputStream.bufferedReader().readText())
+        } finally {
+            con.disconnect()
+        }
+        val h = j.getJSONObject("hourly")
+        val agora = java.time.LocalDateTime.now().withMinute(0).withSecond(0).withNano(0)
+        val tempos = h.getJSONArray("time")
+        val horas = (0 until tempos.length()).map { i ->
+            HoraPrevista(
+                java.time.LocalDateTime.parse(tempos.getString(i)),
+                h.getJSONArray("temperature_2m").getDouble(i).roundToInt(),
+                h.getJSONArray("weather_code").getInt(i),
+                h.getJSONArray("is_day").getInt(i) == 1,
+                h.optJSONArray("precipitation_probability")?.optInt(i) ?: 0,
+            )
+        }.filter { !it.hora.isBefore(agora) }.take(24)
+        val d = j.getJSONObject("daily")
+        val datas = d.getJSONArray("time")
+        val dias = (0 until datas.length()).map { i ->
+            DiaPrevisto(
+                java.time.LocalDate.parse(datas.getString(i)),
+                d.getJSONArray("weather_code").getInt(i),
+                d.getJSONArray("temperature_2m_max").getDouble(i).roundToInt(),
+                d.getJSONArray("temperature_2m_min").getDouble(i).roundToInt(),
+                d.optJSONArray("precipitation_probability_max")?.optInt(i) ?: 0,
+            )
+        }
+        Semana(
+            cidade.nome,
+            horas,
+            dias,
+            runCatching { java.time.LocalDateTime.parse(d.getJSONArray("sunrise").getString(0)) }.getOrNull(),
+            runCatching { java.time.LocalDateTime.parse(d.getJSONArray("sunset").getString(0)) }.getOrNull(),
+        )
+    }.getOrNull()
+}

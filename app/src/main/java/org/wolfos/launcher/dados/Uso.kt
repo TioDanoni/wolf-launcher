@@ -49,6 +49,17 @@ class Uso(contexto: Context) {
         return total
     }
 
+    /** Quantas vezes cada app foi aberto pelo launcher, no total. */
+    fun totais(): Map<String, Int> {
+        val t = HashMap<String, Int>()
+        for ((k, v) in prefs.all) {
+            if (!k.startsWith("a|") || v !is Int) continue
+            val chave = k.split('|', limit = 3).getOrNull(2) ?: continue
+            t[chave] = (t[chave] ?: 0) + v
+        }
+        return t
+    }
+
     fun hoje(): List<Abertura> {
         val inicio = inicioDoDia()
         return prefs.getString("hoje", "").orEmpty().lines().mapNotNull { l ->

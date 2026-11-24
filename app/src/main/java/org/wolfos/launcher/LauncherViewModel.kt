@@ -266,6 +266,10 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---- opcoes da tela inicial: Matilha so fixadas, marca, escuro do fundo, gestos
+    private val _modoLista = MutableStateFlow(preferencias.modoLista)
+    val modoLista: StateFlow<String> = _modoLista.asStateFlow()
+    fun definirModoLista(v: String) { preferencias.modoLista = v; _modoLista.value = v }
+
     private val _matilhaSoFixadas = MutableStateFlow(preferencias.matilhaSoFixadas)
     val matilhaSoFixadas: StateFlow<Boolean> = _matilhaSoFixadas.asStateFlow()
     fun definirMatilhaSoFixadas(v: Boolean) { preferencias.matilhaSoFixadas = v; _matilhaSoFixadas.value = v }

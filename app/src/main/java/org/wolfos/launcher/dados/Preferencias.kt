@@ -49,6 +49,15 @@ class Preferencias(contexto: Context) {
         get() = prefs.getString("estilo_icones", null) ?: if (prefs.getBoolean("icones_linha", false)) "LINHA" else "ORIGINAL"
         set(v) = prefs.edit().putString("estilo_icones", v).apply()
 
+    /**
+     * O que a lista da tela inicial mostra: FIXADOS_SUGESTOES (os fixados e, completando,
+     * o que faz sentido agora), FIXADOS (so os fixados) ou MAIS_USADOS. Quem tinha
+     * desligado as sugestoes fica com so os fixados.
+     */
+    var modoLista: String
+        get() = prefs.getString("modo_lista", null) ?: if (sugestoes) "FIXADOS_SUGESTOES" else "FIXADOS"
+        set(v) = prefs.edit().putString("modo_lista", v).apply()
+
     /** A Matilha so com as conversas fixadas (sem as recentes). */
     var matilhaSoFixadas: Boolean
         get() = prefs.getBoolean("matilha_so_fixadas", false)

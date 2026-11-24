@@ -1,5 +1,12 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material.icons.outlined.ClearAll
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import kotlinx.coroutines.launch
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -114,6 +121,7 @@ fun ListaInicio(
             alternarFavorito = acoes.alternarFavorito,
             avisosDe = acoes.avisosDe,
             acoesAviso = acoes.acoesAviso,
+            limparAvisos = acoes.limparAvisos,
         )
     }
     val letras = remember(todos) { todos.map { it.letra }.distinct() }
@@ -150,6 +158,13 @@ fun ListaInicio(
                             .background(degradeH()),
                     )
                 }
+                if (l == null && itens.isEmpty()) {
+                    Text(
+                        "Nenhum app fixado ainda. Segure um app no buscador (deslize para cima) › Fixar nos favoritos.",
+                        color = Texto.copy(alpha = 0.7f), fontSize = 14.sp, style = TextStyle(shadow = SombraTexto),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+                    )
+                }
                 LazyColumn(Modifier.fillMaxSize()) {
                     itemsIndexed(itens, key = { _, (a, s) -> a.chave + s }) { i, (app, sugerido) ->
                         Box(Modifier.entrada(i.coerceAtMost(10), atraso = 35L)) {
@@ -175,6 +190,9 @@ fun ListaInicio(
     }
 }
 
+/** Quanto da largura e preciso arrastar para limpar as notificacoes de um app. */
+private const val LIMITE_LIMPAR = 0.38f
+
 /** Quanto tempo a lista de uma letra fica depois de soltar o dedo do alfabeto. */
 private const val VOLTA_MS = 3500
 
@@ -187,12 +205,65 @@ private fun LinhaInicio(app: AppInfo, avisos: Int, ultima: String?, sugerido: Bo
     val toque = remember { MutableInteractionSource() }
     val apertado by toque.collectIsPressedAsState()
     val escala by animateFloatAsState(if (apertado) 0.96f else 1f, label = "escala")
-    Box {
+    // com notificacao, arrastar para o lado limpa: a linha desliza e por baixo aparece "Limpar"
+    val escopo = androidx.compose.runtime.rememberCoroutineScope()
+    val deslize = remember(app.chave) { androidx.compose.animation.core.Animatable(0f) }
+    var largura by remember { mutableStateOf(1f) }
+    val podeLimpar = avisos > 0
+    Box(Modifier.onSizeChanged { largura = it.width.toFloat().coerceAtLeast(1f) }) {
+        if (podeLimpar && deslize.value != 0f) {
+            val parte = (kotlin.math.abs(deslize.value) / (largura * LIMITE_LIMPAR)).coerceIn(0f, 1f)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = if (deslize.value > 0) Arrangement.Start else Arrangement.End,
+                modifier = Modifier
+                    .matchParentSize()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Brush.horizontalGradient(
+                        if (deslize.value > 0) listOf(cor.copy(alpha = 0.30f * parte), Color.Transparent)
+                        else listOf(Color.Transparent, cor.copy(alpha = 0.30f * parte)),
+                    ))
+                    .padding(horizontal = 18.dp),
+            ) {
+                Icon(
+                    Icons.Outlined.ClearAll, contentDescription = null, tint = cor,
+                    modifier = Modifier.size(22.dp).graphicsLayer { val e = 0.7f + 0.3f * parte; scaleX = e; scaleY = e; alpha = 0.4f + 0.6f * parte },
+                )
+                Text(
+                    if (parte >= 1f) "  Solte para limpar" else "  Limpar",
+                    color = cor, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.graphicsLayer { alpha = 0.4f + 0.6f * parte },
+                )
+            }
+        }
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .graphicsLayer { scaleX = escala; scaleY = escala }
+                .graphicsLayer { scaleX = escala; scaleY = escala; translationX = deslize.value }
+                .then(
+                    if (!podeLimpar) Modifier
+                    else Modifier.pointerInput(app.chave) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                escopo.launch {
+                                    if (kotlin.math.abs(deslize.value) >= largura * LIMITE_LIMPAR) {
+                                        // sai da tela, limpa e volta (a linha fica sem as notificacoes)
+                                        deslize.animateTo(if (deslize.value > 0) largura else -largura, tween(180))
+                                        acoes.limparAvisos(app)
+                                        deslize.snapTo(0f)
+                                    } else {
+                                        deslize.animateTo(0f, spring(dampingRatio = 0.6f))
+                                    }
+                                }
+                            },
+                            onDragCancel = { escopo.launch { deslize.animateTo(0f, spring()) } },
+                        ) { mudanca, d ->
+                            mudanca.consume()
+                            escopo.launch { deslize.snapTo(deslize.value + d) }
+                        }
+                    },
+                )
                 .clip(RoundedCornerShape(16.dp))
                 .background(if (apertado) Color.White.copy(alpha = 0.06f) else Color.Transparent)
                 .combinedClickable(interactionSource = toque, indication = null, onClick = { acoes.abrir(app) }, onLongClick = { menu = true })

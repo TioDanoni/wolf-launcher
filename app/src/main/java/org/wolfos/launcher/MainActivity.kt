@@ -63,6 +63,7 @@ import org.wolfos.launcher.ui.AcoesApp
 import org.wolfos.launcher.ui.AcoesCompromissos
 import org.wolfos.launcher.ui.AcoesPlayer
 import org.wolfos.launcher.ui.CompromissosDoDia
+import org.wolfos.launcher.ui.PrevisaoSemana
 import org.wolfos.launcher.ui.TempoAgora
 import org.wolfos.launcher.ui.eventosDeHoje
 import org.wolfos.launcher.ui.Player
@@ -314,14 +315,25 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         favoritosChaves.mapNotNull { porChaveApp[it] }.ifEmpty { Sugestoes.favoritosPadrao(apps, notasUso) }
     }
     val avisosPorPacote = remember(avisos) { avisos.groupingBy { it.pacote }.eachCount() }
-    // a lista da tela inicial: os favoritos e, completando ate 9, os sugeridos para agora
-    val agoraApps = remember(apps, notasUso, avisosPorPacote, musica?.pacote, favoritosApps, ritmo) {
-        if (!ritmo) emptyList()
-        else Sugestoes.agora(
-            apps, notasUso, avisosPorPacote, musica?.pacote?.takeIf { musica?.tocando == true },
-            favoritosApps.map { it.chave }.toSet(), quantos = (9 - favoritosApps.size).coerceAtLeast(0),
-        )
+    // a lista da tela inicial, conforme o ajuste: so os fixados, os mais usados, ou os fixados
+    // completados (ate 9) com o que faz sentido agora
+    val modoLista by vm.modoLista.collectAsStateWithLifecycle()
+    val (listaFixa, agoraApps) = remember(modoLista, favoritosChaves, porChaveApp, favoritosApps, notasUso, avisosPorPacote, musica?.pacote, usoMudou) {
+        when (modoLista) {
+            "FIXADOS" -> favoritosChaves.mapNotNull { porChaveApp[it] } to emptyList()
+            "MAIS_USADOS" -> {
+                val totais = vm.uso.totais()
+                val usados = apps.filter { (totais[it.chave] ?: 0) > 0 }.sortedByDescending { totais[it.chave] }.take(9)
+                usados.ifEmpty { Sugestoes.favoritosPadrao(apps, notasUso, 9) } to emptyList()
+            }
+            else -> favoritosApps to Sugestoes.agora(
+                apps, notasUso, avisosPorPacote, musica?.pacote?.takeIf { musica?.tocando == true },
+                favoritosApps.map { it.chave }.toSet(), quantos = (9 - favoritosApps.size).coerceAtLeast(0),
+            )
+        }
     }
+    // a folha da previsao da semana (tocar no clima)
+    var mostrandoSemana by remember { mutableStateOf(false) }
     // a ultima mensagem de cada app ("Ana: chego em 10 min") e o resumo das notificacoes
     val ultimas = remember(avisos) {
         avisos.groupBy { it.pacote }.mapValues { (_, l) ->
@@ -358,6 +370,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
             vm.alternarFavorito(app)
         },
         avisosDe = { app -> avisos.filter { it.pacote == app.pacote } },
+        limparAvisos = { app -> avisos.filter { it.pacote == app.pacote }.forEach(Avisos::dispensar) },
         acoesAviso = acoesAviso,
     )
     val acoesInicio = AcoesInicio(
@@ -495,7 +508,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                     atualizacao, ehPadrao, faixaAgora, noite, acoesInicio,
                     painel = {
                         ListaInicio(
-                            favoritos = favoritosApps,
+                            favoritos = listaFixa,
                             sugeridos = agoraApps,
                             todos = apps,
                             avisos = avisosPorPacote,
@@ -509,7 +522,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                     mostrarMarca = mostrarMarca,
                     estiloRelogio = estiloRelogio,
                     tempo = previsao?.takeIf { tempoLigado }?.let { p ->
-                        { TempoAgora(p, if (fahrenheit) "°F" else "°", aoTocar = { vm.atualizarTempo(forcar = true) }) }
+                        { TempoAgora(p, if (fahrenheit) "°F" else "°", aoTocar = { vm.atualizarTempo(forcar = true); mostrandoSemana = true }) }
                     },
                     compromissos = if (mostrarCompromissos && temAgenda && eventosDeHoje(eventos).isNotEmpty()) {
                         {
@@ -629,6 +642,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         fontesMatilha = vm.fontesMatilha,
                         mostrarPlayer = mostrarPlayer,
                         detalhePlayer = detalheMusica,
+                        modoLista = modoLista,
                         tempoLigado = tempoLigado,
                         cidade = cidade?.descricao,
                         fahrenheit = fahrenheit,
@@ -671,6 +685,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         tipoMatilha = vm::definirTipoMatilha,
                         fonteMatilha = vm::definirFonteMatilha,
                         mostrarPlayer = vm::definirMostrarPlayer,
+                        modoLista = vm::definirModoLista,
                         tempoLigado = vm::definirTempoLigado,
                         escolherCidade = vm::definirCidade,
                         fahrenheit = vm::definirFahrenheit,
@@ -701,7 +716,11 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                 else -> Unit
             }
         }
-
+        // a previsao da semana, por cima de tudo
+        if (mostrandoSemana) {
+            val p = previsao
+            if (p != null) PrevisaoSemana(p, if (fahrenheit) "°F" else "°") { mostrandoSemana = false } else mostrandoSemana = false
+        }
     }
 }
 

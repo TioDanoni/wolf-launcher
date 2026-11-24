@@ -66,6 +66,8 @@ class AcoesApp(
     /** As mensagens do app (as notificacoes dele), para responder no menu. */
     val avisosDe: (AppInfo) -> List<Aviso> = { emptyList() },
     val acoesAviso: AcoesAviso? = null,
+    /** Tirar da cortina todas as notificacoes do app (arrastar a linha para o lado). */
+    val limparAvisos: (AppInfo) -> Unit = {},
 )
 
 /**

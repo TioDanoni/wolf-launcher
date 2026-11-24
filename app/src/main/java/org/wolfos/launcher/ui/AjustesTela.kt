@@ -110,6 +110,8 @@ class EstadoAjustes(
     val mostrarPlayer: Boolean,
     /** O que o player esta vendo agora ("tocando: X (app)", "nenhum app de musica aberto"...). */
     val detalhePlayer: String,
+    /** FIXADOS_SUGESTOES, FIXADOS ou MAIS_USADOS. */
+    val modoLista: String,
     val tempoLigado: Boolean,
     /** "Piracicaba, Sao Paulo, Brasil" (nulo: ainda sem cidade). */
     val cidade: String?,
@@ -156,6 +158,7 @@ class AcoesAjustes(
     val fonteMatilha: (FonteMatilha) -> Unit,
     val matilhaSoFixadas: (Boolean) -> Unit,
     val mostrarPlayer: (Boolean) -> Unit,
+    val modoLista: (String) -> Unit,
     val tempoLigado: (Boolean) -> Unit,
     val escolherCidade: (Cidade) -> Unit,
     val fahrenheit: (Boolean) -> Unit,
@@ -333,16 +336,21 @@ private fun AbaInicio(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (String
     ) { if (estado.avisosPermitidos) acoes.mostrarPlayer(!estado.mostrarPlayer) else acoes.permitirAvisos() }
 
     SecaoMenu("Lista de apps")
+    val modos = listOf("FIXADOS_SUGESTOES" to "Fixados e sugestões", "FIXADOS" to "Só os fixados", "MAIS_USADOS" to "Os mais usados")
     LinhaMenu(
-        Icons.Outlined.PushPin, "Favoritos",
-        if (estado.favoritos.isEmpty()) "nenhum fixado: a lista mostra os mais usados" else "${estado.favoritos.size} fixado(s)",
+        Icons.Outlined.Schedule, "O que a lista mostra",
+        when (estado.modoLista) {
+            "FIXADOS" -> "só os apps que você fixou, na ordem que você escolheu"
+            "MAIS_USADOS" -> "os 9 apps que você mais abre (muda com o uso)"
+            else -> "os fixados e, completando, o que faz sentido agora (hora, mensagens, música)"
+        },
+    )
+    Pilulas(modos.map { it.second }, modos.indexOfFirst { it.first == estado.modoLista }.coerceAtLeast(0)) { acoes.modoLista(modos[it].first) }
+    LinhaMenu(
+        Icons.Outlined.PushPin, "Fixados",
+        if (estado.favoritos.isEmpty()) "nenhum ainda; segure um app › Fixar nos favoritos" else "${estado.favoritos.size} fixado(s) · tirar e adicionar",
         fim = { Seta() },
     ) { abrir(PaginasAjustes.FAVORITOS) }
-    LinhaMenu(
-        Icons.Outlined.Schedule, "Sugestões de agora",
-        "completa a lista com o que você costuma abrir nesta hora, mensagens e música",
-        fim = { ChaveWolf(estado.ritmo, acoes.ritmo) },
-    ) { acoes.ritmo(!estado.ritmo) }
 }
 
 // ---------------------------------------------------------------- Visual

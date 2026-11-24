@@ -71,7 +71,7 @@ private val HM = DateTimeFormatter.ofPattern("HH:mm")
 private enum class Jeito { GIRA, FLUTUA, CAI, PARADO }
 
 /** A cor do tempo: sol dourado, noite lilas, nuvem azul-clara, chuva azul, neve gelo, raio amarelo. */
-private fun corDoTempo(codigo: Int, dia: Boolean): androidx.compose.ui.graphics.Color = when (codigo) {
+fun corDoTempo(codigo: Int, dia: Boolean): androidx.compose.ui.graphics.Color = when (codigo) {
     0, 1 -> if (dia) androidx.compose.ui.graphics.Color(0xFFFFC94A) else androidx.compose.ui.graphics.Color(0xFFB98CFF)
     2, 3, 45, 48 -> androidx.compose.ui.graphics.Color(0xFFA9C7FF)
     in 51..67, in 80..82 -> androidx.compose.ui.graphics.Color(0xFF5BB4FF)
