@@ -12,8 +12,9 @@ Kotlin + Jetpack Compose. Pacote `org.wolfos.launcher`, Android 8.0 (API 26) ou 
 
 ## O que já tem
 
-- **Tela inicial:** relógio, a faixa do "agora" (por enquanto, o aviso de atualização), os
-  verbos e a barra de comando na altura do polegar.
+- **Tela inicial:** relógio (os números deslizam ao virar o minuto), o **clima** (Open-Meteo,
+  cidade e °C/°F configuráveis), os **compromissos de hoje** da Google Agenda, os verbos e
+  a busca na altura do polegar; a aurora do fundo se mexe devagar (desligável).
 - **Verbos:** os apps entram sozinhos (pelo pacote conhecido ou pela categoria que o app
   declara). Tocar abre os apps do verbo; segurar um app deixa trocar o verbo dele.
 - **Barra de comando:** os resultados sobem a partir da barra (o melhor colado nela, o
@@ -93,6 +94,7 @@ app/src/main/java/org/wolfos/launcher/
   dados/Ritmo.kt           a ordem dos verbos pela hora, fone e costume; o modo noite
   dados/Uso.kt             o que é aberto e a que horas (só no celular)
   dados/Agenda.kt          os próximos compromissos
+  dados/Tempo.kt           o clima (Open-Meteo): cidade, previsão, descrições
   dados/Conversas.kt       a Matilha pelas conversas do WhatsApp (atalhos de conversa)
   dados/Personalizacao.kt  apps renomeados e escondidos, nomes e verbos escondidos
   dados/Atalhos.kt         os atalhos de cada app (menu de segurar)
@@ -100,6 +102,7 @@ app/src/main/java/org/wolfos/launcher/
   atualizacao/             consultar o GitHub, baixar, instalar e o trabalho periódico
   ui/Inicio.kt             relógio, faixa do agora, verbos e barra de comando
   ui/Comando.kt            a barra de comando aberta
+  ui/Topo.kt               clima, compromissos de hoje e a busca de cidade
   ui/Gestos.kt             os deslizes (cima, baixo, lados) e as pílulas
   ui/VerboTela.kt          quem está esperando e os apps de um verbo
   ui/MatilhaUi.kt          a fileira da Matilha
