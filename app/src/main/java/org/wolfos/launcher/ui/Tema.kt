@@ -11,6 +11,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 import androidx.compose.ui.platform.LocalContext
 
 /** As cores do WolfOS (as mesmas do Hello no PC). */
@@ -57,7 +65,14 @@ fun WolfTema(noite: Boolean = false, conteudo: @Composable () -> Unit) {
  * aurora do Hello). Parado de proposito: animar o fundo gastaria bateria a toa.
  */
 @Composable
-fun Aurora(acento: Color, escuro: Float, modifier: Modifier = Modifier, degrade: Boolean = false) {
+fun Aurora(acento: Color, escuro: Float, modifier: Modifier = Modifier, degrade: Boolean = false, animado: Boolean = false) {
+    // a aurora se mexe devagar (uma volta a cada 24 s); so redesenha, nao recompoe a tela
+    val fase = if (animado) {
+        val t = rememberInfiniteTransition(label = "aurora")
+        t.animateFloat(0f, (2 * PI).toFloat(), infiniteRepeatable(tween(24_000, easing = LinearEasing)), label = "fase")
+    } else {
+        null
+    }
     Canvas(modifier.fillMaxSize()) {
         if (degrade) {
             // na tela inicial o wallpaper aparece em cima e escurece embaixo, onde ficam os verbos
@@ -71,24 +86,17 @@ fun Aurora(acento: Color, escuro: Float, modifier: Modifier = Modifier, degrade:
         } else {
             drawRect(Fundo.copy(alpha = escuro))
         }
+        val f = fase?.value ?: 0f
         val raio = size.maxDimension * 0.75f
-        drawCircle(
-            brush = Brush.radialGradient(
-                listOf(acento.copy(alpha = 0.20f), Color.Transparent),
-                center = Offset(size.width * 0.1f, size.height * 0.08f),
-                radius = raio,
-            ),
-            radius = raio,
-            center = Offset(size.width * 0.1f, size.height * 0.08f),
-        )
-        drawCircle(
-            brush = Brush.radialGradient(
-                listOf(Color(0xFF4C8DFF).copy(alpha = 0.12f), Color.Transparent),
-                center = Offset(size.width * 0.95f, size.height * 0.9f),
-                radius = raio,
-            ),
-            radius = raio,
-            center = Offset(size.width * 0.95f, size.height * 0.9f),
-        )
+        fun brilho(cor: Color, alfa: Float, x: Float, y: Float, r: Float = raio) {
+            val c = Offset(size.width * x, size.height * y)
+            drawCircle(Brush.radialGradient(listOf(cor.copy(alpha = alfa), Color.Transparent), center = c, radius = r), radius = r, center = c)
+        }
+        brilho(acento, 0.20f + 0.06f * sin(f * 2), 0.1f + 0.10f * sin(f), 0.08f + 0.06f * cos(f))
+        brilho(Color(0xFF4C8DFF), 0.12f + 0.04f * cos(f * 2), 0.95f - 0.10f * cos(f), 0.9f - 0.05f * sin(f))
+        if (fase != null) {
+            // um terceiro brilho, fraco, que atravessa o meio
+            brilho(acento, 0.07f, 0.5f + 0.35f * sin(f + 1.3f), 0.55f + 0.15f * cos(f * 1.5f), raio * 0.6f)
+        }
     }
 }

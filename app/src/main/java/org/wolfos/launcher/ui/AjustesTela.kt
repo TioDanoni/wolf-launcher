@@ -14,6 +14,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.EventNote
+import androidx.compose.material.icons.outlined.LocationCity
+import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Category
@@ -53,6 +57,7 @@ import androidx.compose.ui.unit.sp
 import org.wolfos.launcher.atualizacao.Atualizador
 import org.wolfos.launcher.atualizacao.EstadoAtualizacao
 import org.wolfos.launcher.dados.AppInfo
+import org.wolfos.launcher.dados.Cidade
 import org.wolfos.launcher.dados.TipoMatilha
 import org.wolfos.launcher.dados.Verbo
 
@@ -71,6 +76,12 @@ class EstadoAjustes(
     val mostrarPlayer: Boolean,
     /** O que o player esta vendo agora ("tocando: X (app)", "nenhum app de musica aberto"...). */
     val detalhePlayer: String,
+    val tempoLigado: Boolean,
+    /** "Piracicaba, Sao Paulo, Brasil" (nulo: ainda sem cidade). */
+    val cidade: String?,
+    val fahrenheit: Boolean,
+    val compromissos: Boolean,
+    val fundoAnimado: Boolean,
     val ritmo: Boolean,
     val modoNoite: Boolean,
     val janelaNoite: Pair<Int, Int>,
@@ -99,6 +110,11 @@ class AcoesAjustes(
     val tipoMatilha: (TipoMatilha) -> Unit,
     val iconesNosVerbos: (Boolean) -> Unit,
     val mostrarPlayer: (Boolean) -> Unit,
+    val tempoLigado: (Boolean) -> Unit,
+    val escolherCidade: (Cidade) -> Unit,
+    val fahrenheit: (Boolean) -> Unit,
+    val compromissos: (Boolean) -> Unit,
+    val fundoAnimado: (Boolean) -> Unit,
     val ritmo: (Boolean) -> Unit,
     val modoNoite: (Boolean) -> Unit,
     val janelaNoite: (Int, Int) -> Unit,
@@ -147,6 +163,32 @@ private fun PaginaPrincipal(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (
     if (!estado.ehPadrao) {
         LinhaMenu(Icons.Outlined.Home, "Usar como tela inicial", "o WolfLauncher ainda não é a tela inicial", fim = { Seta() }, aoTocar = acoes.definirPadrao)
     }
+
+    SecaoMenu("Topo")
+    var escolhendoCidade by remember { mutableStateOf(false) }
+    LinhaMenu(
+        Icons.Outlined.WbSunny, "Clima", "temperatura, máxima e mínima embaixo do relógio (Open-Meteo)",
+        fim = { ChaveWolf(estado.tempoLigado, acoes.tempoLigado) },
+    ) { acoes.tempoLigado(!estado.tempoLigado) }
+    if (estado.tempoLigado) {
+        LinhaMenu(
+            Icons.Outlined.LocationCity, "Cidade",
+            estado.cidade ?: "escolha uma cidade",
+            fim = { Seta() },
+        ) { escolhendoCidade = true }
+        Pilulas(listOf("Celsius (°C)", "Fahrenheit (°F)"), if (estado.fahrenheit) 1 else 0) { acoes.fahrenheit(it == 1) }
+    }
+    if (escolhendoCidade) {
+        EscolherCidade(aoEscolher = { acoes.escolherCidade(it); escolhendoCidade = false }, aoFechar = { escolhendoCidade = false })
+    }
+    LinhaMenu(
+        Icons.Outlined.EventNote, "Compromissos de hoje", "da Google Agenda, embaixo do clima",
+        fim = { ChaveWolf(estado.compromissos, acoes.compromissos) },
+    ) { acoes.compromissos(!estado.compromissos) }
+    LinhaMenu(
+        Icons.Outlined.AutoAwesome, "Fundo animado", "a aurora se mexe devagar (gasta um pouquinho de bateria)",
+        fim = { ChaveWolf(estado.fundoAnimado, acoes.fundoAnimado) },
+    ) { acoes.fundoAnimado(!estado.fundoAnimado) }
 
     SecaoMenu("Tela inicial")
     val naTela = estado.appsPorVerbo.count { (v, n) -> n > 0 && v !in estado.verbosEscondidos }

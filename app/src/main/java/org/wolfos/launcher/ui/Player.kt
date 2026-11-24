@@ -1,5 +1,13 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -65,6 +73,13 @@ fun Player(musica: Musica, acoes: AcoesPlayer, modifier: Modifier = Modifier) {
             delay(1000)
         }
     }
+    val respira = rememberInfiniteTransition(label = "capa")
+    val escalaCapa by respira.animateFloat(1f, if (musica.tocando) 1.05f else 1f, infiniteRepeatable(tween(1400), RepeatMode.Reverse), label = "e")
+    val parte by animateFloatAsState(
+        if (musica.duracao > 0) (posicao.toFloat() / musica.duracao).coerceIn(0f, 1f) else 0f,
+        tween(950, easing = LinearEasing),
+        label = "parte",
+    )
     Column(
         modifier
             .fillMaxWidth()
@@ -76,7 +91,12 @@ fun Player(musica: Musica, acoes: AcoesPlayer, modifier: Modifier = Modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier.size(56.dp).clip(RoundedCornerShape(14.dp)).background(cor.copy(alpha = 0.15f)).clickable(onClick = acoes.abrir),
+                modifier = Modifier
+                    .size(56.dp)
+                    .graphicsLayer { scaleX = escalaCapa; scaleY = escalaCapa }
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(cor.copy(alpha = 0.15f))
+                    .clickable(onClick = acoes.abrir),
             ) {
                 musica.capa?.let { Image(it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(56.dp)) }
                     ?: Icon(Icons.Outlined.MusicNote, contentDescription = null, tint = cor)
@@ -118,7 +138,7 @@ fun Player(musica: Musica, acoes: AcoesPlayer, modifier: Modifier = Modifier) {
                     Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(Texto.copy(alpha = 0.15f)))
                     Box(
                         Modifier
-                            .fillMaxWidth((posicao.toFloat() / musica.duracao).coerceIn(0f, 1f))
+                            .fillMaxWidth(parte)
                             .height(4.dp)
                             .clip(CircleShape)
                             .background(cor),

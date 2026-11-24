@@ -1,5 +1,11 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.material.icons.outlined.WbCloudy
 import org.wolfos.launcher.avisos.Clima
 import androidx.compose.material.icons.outlined.NotificationsActive
@@ -172,6 +178,10 @@ fun Inicio(
     acoes: AcoesInicio,
     /** O tempo (vem da notificacao do app do clima), ao lado da data. */
     clima: Clima? = null,
+    /** O clima de verdade (Open-Meteo), embaixo do relogio; com ele, o da notificacao some. */
+    tempo: (@Composable () -> Unit)? = null,
+    /** Os compromissos de hoje, embaixo do clima. */
+    compromissos: (@Composable () -> Unit)? = null,
     /** O player de musica (ou nada); com ele, o Ouvir nao repete os controles. */
     player: (@Composable () -> Unit)? = null,
     /** A fileira da Matilha (ou nada), logo acima da barra de comando. */
@@ -200,9 +210,11 @@ fun Inicio(
         ) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 18.dp)) {
                 Marca(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp))
-                Relogio(clima, Modifier.padding(start = 6.dp, top = 22.dp))
+                Relogio(clima.takeIf { tempo == null }, Modifier.padding(start = 6.dp, top = 22.dp))
+                tempo?.let { Box(Modifier.padding(start = 2.dp, top = 10.dp).entrada(1)) { it() } }
+                compromissos?.let { Box(Modifier.padding(top = 12.dp).entrada(2)) { it() } }
                 // a faixa do agora: primeiro o que falta para o launcher funcionar direito
-                Column(Modifier.padding(top = 18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.padding(top = 14.dp).entrada(3), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (!ehPadrao) FaixaLimpa("⌂", "Usar o WolfLauncher como tela inicial", "Definir", acoes.definirPadrao)
                     acoes.permitirAvisos?.let { permitir ->
                         FaixaLimpa("♪", "Ligue as notificações: música, mensagens e Matilha", "Ligar", permitir)
@@ -435,8 +447,11 @@ private fun LinhaVerbo(
 @Composable
 private fun Marca(modifier: Modifier = Modifier) {
     val cor = MaterialTheme.colorScheme.primary
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
-        Box(Modifier.width(44.dp).height(1.dp).background(cor.copy(alpha = 0.7f)))
+    // os dois tracos se abrem do lobo para fora quando a tela aparece
+    val abre = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { abre.animateTo(1f, tween(700, easing = FastOutSlowInEasing)) }
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier.graphicsLayer { alpha = 0.3f + 0.7f * abre.value }) {
+        Box(Modifier.width(44.dp).height(1.dp).graphicsLayer { scaleX = abre.value; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 0.5f) }.background(cor.copy(alpha = 0.7f)))
         Icon(
             painterResource(R.drawable.marca_lobo),
             contentDescription = null,
@@ -445,7 +460,11 @@ private fun Marca(modifier: Modifier = Modifier) {
         )
         Text("Wolf", color = Texto, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, style = TextStyle(shadow = SombraTexto))
         Text("Launcher", color = Texto.copy(alpha = 0.85f), fontSize = 14.sp, fontWeight = FontWeight.Light, style = TextStyle(shadow = SombraTexto))
-        Box(Modifier.padding(start = 12.dp).width(44.dp).height(1.dp).background(cor.copy(alpha = 0.7f)))
+        Box(
+            Modifier.padding(start = 12.dp).width(44.dp).height(1.dp)
+                .graphicsLayer { scaleX = abre.value; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0.5f) }
+                .background(cor.copy(alpha = 0.7f)),
+        )
     }
 }
 
@@ -565,13 +584,27 @@ private fun Equalizador(cor: Color, modifier: Modifier = Modifier) {
 private fun Relogio(clima: Clima?, modifier: Modifier = Modifier) {
     val momento = agora()
     Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
-        Text(
-            momento.format(HORA),
-            fontSize = 66.sp,
-            fontWeight = FontWeight.Light,
-            color = Texto,
-            style = TextStyle(shadow = SombraTexto),
-        )
+        // cada numero desliza quando muda (o minuto virando)
+        Row {
+            momento.format(HORA).forEachIndexed { i, ch ->
+                AnimatedContent(
+                    targetState = ch,
+                    transitionSpec = {
+                        (slideInVertically(tween(450)) { -it / 2 } + fadeIn(tween(450))) togetherWith
+                            (slideOutVertically(tween(450)) { it / 2 } + fadeOut(tween(300)))
+                    },
+                    label = "digito$i",
+                ) { c ->
+                    Text(
+                        c.toString(),
+                        fontSize = 66.sp,
+                        fontWeight = FontWeight.Light,
+                        color = Texto,
+                        style = TextStyle(shadow = SombraTexto),
+                    )
+                }
+            }
+        }
         Box(Modifier.padding(horizontal = 18.dp).width(1.dp).height(56.dp).background(Texto.copy(alpha = 0.45f)))
         Column {
             Text(

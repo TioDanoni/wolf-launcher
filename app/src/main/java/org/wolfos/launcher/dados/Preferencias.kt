@@ -26,6 +26,16 @@ class Preferencias(contexto: Context) {
         get() = prefs.getBoolean("mostrar_player", true)
         set(v) = prefs.edit().putBoolean("mostrar_player", v).apply()
 
+    /** Os compromissos de hoje embaixo do relogio. */
+    var compromissos: Boolean
+        get() = prefs.getBoolean("compromissos", true)
+        set(v) = prefs.edit().putBoolean("compromissos", v).apply()
+
+    /** A aurora do fundo se mexendo devagar. */
+    var fundoAnimado: Boolean
+        get() = prefs.getBoolean("fundo_animado", true)
+        set(v) = prefs.edit().putBoolean("fundo_animado", v).apply()
+
     /** A fileira da Matilha na tela inicial. */
     var mostrarMatilha: Boolean
         get() = prefs.getBoolean("mostrar_matilha", true)

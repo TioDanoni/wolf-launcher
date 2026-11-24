@@ -18,6 +18,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
@@ -58,7 +60,10 @@ import org.wolfos.launcher.dados.agrupar
 import org.wolfos.launcher.dados.verboDe
 import org.wolfos.launcher.ui.AcoesAjustes
 import org.wolfos.launcher.ui.AcoesApp
+import org.wolfos.launcher.ui.AcoesCompromissos
 import org.wolfos.launcher.ui.AcoesPlayer
+import org.wolfos.launcher.ui.CompromissosDoDia
+import org.wolfos.launcher.ui.TempoAgora
 import org.wolfos.launcher.ui.AcoesVerbo
 import org.wolfos.launcher.ui.Player
 import org.wolfos.launcher.ui.AcoesWidgets
@@ -207,6 +212,12 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     val mostrarPlayer by vm.mostrarPlayer.collectAsStateWithLifecycle()
     val detalheMusica by vm.detalheMusica.collectAsStateWithLifecycle()
     val clima by vm.clima.collectAsStateWithLifecycle()
+    val previsao by vm.previsao.collectAsStateWithLifecycle()
+    val tempoLigado by vm.tempoLigado.collectAsStateWithLifecycle()
+    val cidade by vm.cidade.collectAsStateWithLifecycle()
+    val fahrenheit by vm.fahrenheit.collectAsStateWithLifecycle()
+    val mostrarCompromissos by vm.compromissos.collectAsStateWithLifecycle()
+    val fundoAnimado by vm.fundoAnimado.collectAsStateWithLifecycle()
     // o player aparece tocando, e ate 15 min depois de pausar (a hora muda a cada minuto e reavalia)
     val musicaNoPlayer = remember(musica, mostrarPlayer, hora, agora().minute) {
         musica?.takeIf { m ->
@@ -352,9 +363,10 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
             musica?.let { m -> apps.firstOrNull { it.pacote == m.pacote } }?.let(acoesApp.abrir)
         },
     )
-    val faixaAgora = remember(noite, alarme, eventos, hora) {
+    val faixaAgora = remember(noite, alarme, eventos, hora, mostrarCompromissos) {
         faixaDoAgora(
-            noite, alarme, eventos, abrirAlarmes,
+            // com os compromissos na tela, a faixa nao repete o proximo evento
+            noite, alarme, if (mostrarCompromissos) emptyList() else eventos, abrirAlarmes,
             criarAlarme = { Apps.abrirTela(contexto, Intent(AlarmClock.ACTION_SET_ALARM)) },
             entrar = { Agenda.entrar(contexto, it) },
             abrir = { Agenda.abrir(contexto, it) },
@@ -424,7 +436,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     val escuro by animateFloatAsState(if (tela == Telas.INICIO) 0.45f else 0.88f, label = "escuro")
 
     Box(Modifier.fillMaxSize()) {
-        Aurora(MaterialTheme.colorScheme.primary, escuro, degrade = tela == Telas.INICIO)
+        Aurora(MaterialTheme.colorScheme.primary, escuro, degrade = tela == Telas.INICIO, animado = fundoAnimado)
         AnimatedContent(
             targetState = tela,
             transitionSpec = {
@@ -433,7 +445,9 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                     targetState == Telas.WIDGETS -> slideInHorizontally { it / 3 } + fadeIn() togetherWith fadeOut()
                     initialState == Telas.WIDGETS -> fadeIn() togetherWith slideOutHorizontally { it / 3 } + fadeOut()
                     initialState == Telas.DIA -> fadeIn() togetherWith slideOutHorizontally { -it / 3 } + fadeOut()
-                    targetState == Telas.INICIO -> fadeIn() togetherWith slideOutVertically { it / 4 } + fadeOut()
+                    targetState == Telas.INICIO ->
+                        (fadeIn(tween(350)) + scaleIn(tween(400), initialScale = 0.94f)) togetherWith
+                            (slideOutVertically { it / 4 } + fadeOut(tween(250)))
                     else -> slideInVertically { it / 4 } + fadeIn() togetherWith fadeOut()
                 }
             },
@@ -444,6 +458,22 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                     apps, verbos, atualizacao, ehPadrao, previas, faixaAgora, noite,
                     iconesDosVerbos, titulos, musica, acoesMusica, acoesInicio,
                     clima = clima,
+                    tempo = previsao?.takeIf { tempoLigado }?.let { p ->
+                        { TempoAgora(p, if (fahrenheit) "°F" else "°", aoTocar = { vm.atualizarTempo(forcar = true) }) }
+                    },
+                    compromissos = if (mostrarCompromissos) {
+                        {
+                            CompromissosDoDia(
+                                eventos, temAgenda,
+                                AcoesCompromissos(
+                                    abrir = { Agenda.abrir(contexto, it) },
+                                    entrar = { Agenda.entrar(contexto, it) },
+                                    novo = { Apps.abrirTela(contexto, Intent(Intent.ACTION_INSERT, android.provider.CalendarContract.Events.CONTENT_URI)) },
+                                    permitir = { pedidoAgenda.launch(Manifest.permission.READ_CALENDAR) },
+                                ),
+                            )
+                        }
+                    } else null,
                     player = musicaNoPlayer?.let { m ->
                         {
                             Player(
@@ -524,6 +554,11 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         iconesNosVerbos = iconesNosVerbos,
                         mostrarPlayer = mostrarPlayer,
                         detalhePlayer = detalheMusica,
+                        tempoLigado = tempoLigado,
+                        cidade = cidade?.descricao,
+                        fahrenheit = fahrenheit,
+                        compromissos = mostrarCompromissos,
+                        fundoAnimado = fundoAnimado,
                         ritmo = ritmo,
                         modoNoite = modoNoite,
                         janelaNoite = janelaNoite,
@@ -554,6 +589,11 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         tipoMatilha = vm::definirTipoMatilha,
                         iconesNosVerbos = vm::definirIconesNosVerbos,
                         mostrarPlayer = vm::definirMostrarPlayer,
+                        tempoLigado = vm::definirTempoLigado,
+                        escolherCidade = vm::definirCidade,
+                        fahrenheit = vm::definirFahrenheit,
+                        compromissos = vm::definirCompromissos,
+                        fundoAnimado = vm::definirFundoAnimado,
                         ritmo = vm::definirRitmo,
                         modoNoite = vm::definirModoNoite,
                         janelaNoite = vm::definirJanelaNoite,

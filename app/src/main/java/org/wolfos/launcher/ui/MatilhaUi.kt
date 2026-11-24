@@ -86,7 +86,7 @@ fun FileiraMatilha(
             verticalAlignment = Alignment.Top,
             modifier = Modifier.horizontalScroll(rememberScrollState()),
         ) {
-            for (p in pessoas) Membro(p, Matilha.esperando(p, avisos), acoes)
+            pessoas.forEachIndexed { i, p -> Box(Modifier.entrada(i)) { Membro(p, Matilha.esperando(p, avisos), acoes) } }
             if (pessoas.size < Matilha.MAXIMO) {
                 Adicionar(if (pessoas.isEmpty()) (if (temContatos) "escolher" else "permitir agenda") else null, acoes.adicionar)
             }
@@ -207,7 +207,9 @@ fun FileiraConversas(
             verticalAlignment = Alignment.Top,
             modifier = Modifier.horizontalScroll(rememberScrollState()),
         ) {
-            for (c in conversas) MembroConversa(c, c.chave in fixadas, Conversas.esperando(c, avisos), acoes)
+            conversas.forEachIndexed { i, c ->
+                Box(Modifier.entrada(i)) { MembroConversa(c, c.chave in fixadas, Conversas.esperando(c, avisos), acoes) }
+            }
             Adicionar(if (conversas.isEmpty()) "fixar" else null) { escolhendo = true }
         }
     }

@@ -39,7 +39,10 @@ import org.wolfos.launcher.dados.TipoMatilha
 import org.wolfos.launcher.dados.EscolhasVerbo
 import org.wolfos.launcher.dados.Icones
 import org.wolfos.launcher.dados.Matilha
+import org.wolfos.launcher.dados.Cidade
 import org.wolfos.launcher.dados.Padrao
+import org.wolfos.launcher.dados.Previsao
+import org.wolfos.launcher.dados.Tempo
 import org.wolfos.launcher.dados.Personalizacao
 import org.wolfos.launcher.dados.Verbo
 import org.wolfos.launcher.dados.WidgetSalvo
@@ -181,6 +184,63 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         _mostrarPlayer.value = valor
     }
 
+    // ---- o topo: clima (Open-Meteo), compromissos e o fundo animado
+    private val _tempoLigado = MutableStateFlow(Tempo.ligado(app))
+    val tempoLigado: StateFlow<Boolean> = _tempoLigado.asStateFlow()
+
+    private val _previsao = MutableStateFlow(Tempo.guardada(app))
+    val previsao: StateFlow<Previsao?> = _previsao.asStateFlow()
+
+    private val _cidade = MutableStateFlow(Tempo.cidade(app))
+    val cidade: StateFlow<Cidade?> = _cidade.asStateFlow()
+
+    private val _fahrenheit = MutableStateFlow(Tempo.fahrenheit(app))
+    val fahrenheit: StateFlow<Boolean> = _fahrenheit.asStateFlow()
+
+    private val _compromissos = MutableStateFlow(preferencias.compromissos)
+    val compromissos: StateFlow<Boolean> = _compromissos.asStateFlow()
+
+    private val _fundoAnimado = MutableStateFlow(preferencias.fundoAnimado)
+    val fundoAnimado: StateFlow<Boolean> = _fundoAnimado.asStateFlow()
+
+    /** Busca o clima se faz mais de 30 min (ou agora, com [forcar]). */
+    fun atualizarTempo(forcar: Boolean = false) {
+        val ctx = getApplication<Application>()
+        if (!_tempoLigado.value || _cidade.value == null) return
+        val ultima = _previsao.value?.quando ?: 0L
+        if (!forcar && System.currentTimeMillis() - ultima < 30 * 60_000L) return
+        viewModelScope.launch { Tempo.atualizar(ctx)?.let { _previsao.value = it } }
+    }
+
+    fun definirTempoLigado(v: Boolean) {
+        Tempo.definirLigado(getApplication(), v)
+        _tempoLigado.value = v
+        atualizarTempo(forcar = true)
+    }
+
+    fun definirCidade(c: Cidade) {
+        Tempo.definirCidade(getApplication(), c)
+        _cidade.value = c
+        _previsao.value = null
+        atualizarTempo(forcar = true)
+    }
+
+    fun definirFahrenheit(v: Boolean) {
+        Tempo.definirFahrenheit(getApplication(), v)
+        _fahrenheit.value = v
+        atualizarTempo(forcar = true)
+    }
+
+    fun definirCompromissos(v: Boolean) {
+        preferencias.compromissos = v
+        _compromissos.value = v
+    }
+
+    fun definirFundoAnimado(v: Boolean) {
+        preferencias.fundoAnimado = v
+        _fundoAnimado.value = v
+    }
+
     private val _mostrarMatilha = MutableStateFlow(preferencias.mostrarMatilha)
     val mostrarMatilha: StateFlow<Boolean> = _mostrarMatilha.asStateFlow()
 
@@ -276,6 +336,15 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         carregarConversas()
         if (Avisos.permitido(app)) Tocando.iniciar(app)
         TrabalhoAtualizacao.agendar(app)
+        // sem cidade escolhida ainda: usa a da notificacao do clima (ex.: "Piracicaba: 23°")
+        viewModelScope.launch {
+            Avisos.clima.collect { c ->
+                if (c != null && _cidade.value == null) {
+                    Tempo.buscarCidades(c.cidade).firstOrNull()?.let(::definirCidade)
+                }
+            }
+        }
+        atualizarTempo()
     }
 
     /** Le a agenda fora da tela (so se a pessoa deixou). */
@@ -357,6 +426,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         carregarContatos()
         carregarConversas()
         carregarDia()
+        atualizarTempo()
         viewModelScope.launch {
             Atualizador.aoVoltar(getApplication())
             val passou = System.currentTimeMillis() - preferencias.ultimaVerificacao

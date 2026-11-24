@@ -17,6 +17,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -69,4 +70,24 @@ fun Pilula(texto: String, destaque: Boolean, aoTocar: () -> Unit) {
             .clickable(onClick = aoTocar)
             .padding(horizontal = 14.dp, vertical = 7.dp),
     ) { Text(texto, color = if (destaque) cor else Texto, fontSize = 13.5.sp, fontWeight = FontWeight.Medium) }
+}
+
+/**
+ * Entrada suave: o elemento aparece crescendo e subindo um pouco, com um atraso pela
+ * posicao dele (um depois do outro).
+ */
+@Composable
+fun Modifier.entrada(indice: Int, atraso: Long = 55L): Modifier {
+    val v = remember { androidx.compose.animation.core.Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(indice * atraso)
+        v.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.72f, stiffness = 220f))
+    }
+    return this.graphicsLayer {
+        alpha = v.value.coerceIn(0f, 1f)
+        val e = 0.85f + 0.15f * v.value
+        scaleX = e
+        scaleY = e
+        translationY = (1f - v.value) * 16.dp.toPx()
+    }
 }
