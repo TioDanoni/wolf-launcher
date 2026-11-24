@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Atualizacao sozinha: consultar o GitHub, baixar e instalar a versao nova por cima. -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -12,6 +13,8 @@
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
     <!-- Seu dia e a faixa do agora: os proximos compromissos da agenda. -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <!-- Seu dia e Wolf Insights: tempo de tela e uso dos apps (a pessoa liga se quiser; fica no celular). -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
     <!-- Painel: a bateria dos fones e aparelhos Bluetooth conectados (opcional). -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />

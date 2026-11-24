@@ -74,6 +74,9 @@ import org.wolfos.launcher.ui.PaginasAjustes
 import org.wolfos.launcher.ui.AcoesAviso
 import org.wolfos.launcher.ui.AcoesDia
 import org.wolfos.launcher.ui.AcoesBusca
+import org.wolfos.launcher.ui.EstadoDia
+import org.wolfos.launcher.ui.InsightsFolha
+import org.wolfos.launcher.dados.Insights
 import org.wolfos.launcher.ui.AcoesPainel
 import org.wolfos.launcher.ui.EstadoPainel
 import org.wolfos.launcher.ui.PainelTela
@@ -84,7 +87,6 @@ import org.wolfos.launcher.dados.Favoritos
 import org.wolfos.launcher.dados.Sugestoes
 import org.wolfos.launcher.ui.DiaTela
 import org.wolfos.launcher.ui.FaixaInfo
-import org.wolfos.launcher.ui.Passado
 import org.wolfos.launcher.ui.agora
 import org.wolfos.launcher.ui.quandoFalta
 import org.wolfos.launcher.ui.AcoesPessoa
@@ -341,6 +343,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     }
     // a folha da previsao da semana (tocar no clima)
     var mostrandoSemana by remember { mutableStateOf(false) }
+    var mostrandoInsights by remember { mutableStateOf(false) }
     // a ultima mensagem de cada app ("Ana: chego em 10 min") e o resumo das notificacoes
     val ultimas = remember(avisos) {
         avisos.groupBy { it.pacote }.mapValues { (_, l) ->
@@ -432,17 +435,28 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
             abrir = { Agenda.abrir(contexto, it) },
         )
     }
+    // as acoes da busca/comando: a maioria se faz sozinha; "insights" abre o Wolf Insights
+    val fazerAcao: (org.wolfos.launcher.dados.Acao) -> Unit = { a ->
+        if (a.especial == "insights") {
+            vm.carregarDia()
+            tela = Telas.DIA
+            mostrandoInsights = true
+        } else {
+            a.executar(contexto)
+            vm.recarregarNotas()
+            vm.timerTalvezMudou()
+            voltarAoInicio()
+        }
+    }
     val acoesDia = AcoesDia(
         abrirApp = acoesApp.abrir,
-        abrirAviso = { a ->
-            val app = apps.firstOrNull { it.pacote == a.pacote }
-            if (Avisos.abrir(contexto, a) || (app != null && Apps.abrir(contexto, app))) voltarAoInicio()
-        },
         abrirEvento = { Agenda.abrir(contexto, it) },
         entrarEvento = { Agenda.entrar(contexto, it) },
         abrirAlarmes = abrirAlarmes,
         permitirAgenda = { pedidoAgenda.launch(Manifest.permission.READ_CALENDAR) },
-        buscar = { comando = ""; tela = Telas.COMANDO },
+        permitirUso = { Insights.pedirPermissao(contexto) },
+        abrirInsights = { mostrandoInsights = true },
+        abrirPainel = { tela = Telas.WIDGETS },
         voltar = voltarAoInicio,
     )
     val acoesPessoa = AcoesPessoa(
@@ -578,21 +592,29 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                     }
                 }
                 atual == Telas.DIA -> {
-                    val porChave = remember(apps) { apps.associateBy { it.chave } }
                     val porPacote = remember(apps) { apps.associateBy { it.pacote } }
-                    val inicioDoDia = Uso.inicioDoDia()
-                    val antes = remember(usoMudou, avisos, apps) {
-                        (vm.uso.hoje().mapNotNull { a -> porChave[a.chave]?.let { Passado.Abriu(a.quando, it) } } +
-                            avisos.filter { it.quando >= inicioDoDia }.map { Passado.Recebeu(it.quando, it, porPacote[it.pacote]) })
-                            .sortedBy { it.quando }
-                            .takeLast(8)
-                    }
-                    val costume = remember(hora, usoMudou, apps) {
-                        vm.uso.appsDaHora(hora, apps, 5).ifEmpty {
-                            vm.uso.hoje().asReversed().mapNotNull { porChave[it.chave] }.distinct().take(5)
-                        }
-                    }
-                    DiaTela(antes, costume, eventos, alarme, temAgenda, acoesDia)
+                    val resumo by vm.resumoHoje.collectAsStateWithLifecycle()
+                    val temUso by vm.temUso.collectAsStateWithLifecycle()
+                    val notas by vm.notas.collectAsStateWithLifecycle()
+                    DiaTela(
+                        EstadoDia(
+                            resumo = resumo,
+                            temUso = temUso,
+                            notas = notas,
+                            sugeridos = Sugestoes.agora(
+                                apps, notasUso, avisosPorPacote, musica?.pacote?.takeIf { musica?.tocando == true },
+                                emptySet(), quantos = 4,
+                            ),
+                            porPacote = porPacote,
+                            eventos = eventos,
+                            alarme = alarme,
+                            temAgenda = temAgenda,
+                            modoNoite = modoNoite,
+                            noiteInicio = janelaNoite.first,
+                            avisos = avisos.size,
+                        ),
+                        acoesDia,
+                    )
                 }
                 atual == Telas.WIDGETS -> {
                     val notas by vm.notas.collectAsStateWithLifecycle()
@@ -664,7 +686,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                     val contagem = remember(avisos) { avisos.groupingBy { it.pacote }.eachCount() }
                     Gaveta(
                         apps, acoesApp, busca, { busca = it }, recentes, contagem,
-                        aoAcao = { a -> a.executar(contexto); vm.recarregarNotas(); vm.timerTalvezMudou(); voltarAoInicio() },
+                        aoAcao = { a -> fazerAcao(a) },
                         aoWeb = { Apps.buscarNaWeb(contexto, it); voltarAoInicio() },
                         contatos = contatos,
                         aoLigar = { if (Contatos.ligar(contexto, it)) voltarAoInicio() },
@@ -690,7 +712,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                             abrirConversa = acoesConversa.abrir,
                             ligar = { if (Contatos.ligar(contexto, it)) voltarAoInicio() },
                             mensagem = { if (Contatos.mensagem(contexto, it)) voltarAoInicio() },
-                            executar = { a -> a.executar(contexto); vm.recarregarNotas(); vm.timerTalvezMudou(); voltarAoInicio() },
+                            executar = { a -> fazerAcao(a) },
                             web = { Apps.buscarNaWeb(contexto, it); voltarAoInicio() },
                             ajustes = { comando = ""; paginaAjustes = PaginasAjustes.PRINCIPAL; tela = Telas.AJUSTES },
                             todosApps = { busca = ""; tela = Telas.GAVETA },
@@ -787,6 +809,10 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                 )
                 else -> Unit
             }
+        }
+        // o Wolf Insights (da tela do dia ou do comando "quanto usei o celular?")
+        if (mostrandoInsights) {
+            InsightsFolha(apps.associateBy { it.pacote }) { mostrandoInsights = false }
         }
         // a previsao da semana, por cima de tudo
         if (mostrandoSemana) {

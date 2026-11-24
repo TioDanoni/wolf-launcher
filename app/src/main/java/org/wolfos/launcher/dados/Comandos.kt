@@ -18,6 +18,8 @@ class Acao(
     val simbolo: String,
     val titulo: String,
     val sub: String,
+    /** Algo que a tela principal faz (ex.: "insights" abre o Wolf Insights). */
+    val especial: String? = null,
     val executar: (Context) -> Unit,
 )
 
@@ -33,6 +35,9 @@ fun interpretar(texto: String): List<Acao> {
     if (t.isEmpty()) return emptyList()
     val acoes = mutableListOf<Acao>()
     notaOuTarefa(texto.trim())?.let(acoes::add)
+    if (listOf("quanto usei", "tempo de tela", "insights", "estatistica", "uso do celular").any { t.contains(it) }) {
+        acoes += Acao("▥", "Wolf Insights", "tempo de tela, apps que mais usa e a semana", especial = "insights") { }
+    }
     if ("pomodoro".startsWith(t) && t.length >= 4) {
         acoes += Acao("◷", "Pomodoro de 25 min", "foco; o Painel mostra quanto falta") { ctx -> TimerWolf(ctx).comecar(ctx, 25, "Pomodoro") }
     }

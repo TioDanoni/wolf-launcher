@@ -51,7 +51,9 @@ import org.wolfos.launcher.dados.Aparelhos
 import org.wolfos.launcher.dados.ArrumacaoPainel
 import org.wolfos.launcher.dados.Nota
 import org.wolfos.launcher.dados.Notas
+import org.wolfos.launcher.dados.Insights
 import org.wolfos.launcher.dados.Padrao
+import org.wolfos.launcher.dados.ResumoDia
 import org.wolfos.launcher.dados.PartePainel
 import org.wolfos.launcher.dados.TimerWolf
 import org.wolfos.launcher.dados.PacoteIcones
@@ -517,8 +519,18 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** O fone, a agenda e o despertador: o que muda o "agora". */
+    // ---- Seu dia / Wolf Insights: o resumo de hoje (com o acesso ao uso)
+    private val _resumoHoje = MutableStateFlow<ResumoDia?>(null)
+    val resumoHoje: StateFlow<ResumoDia?> = _resumoHoje.asStateFlow()
+    private val _temUso = MutableStateFlow(Insights.temPermissao(app))
+    val temUso: StateFlow<Boolean> = _temUso.asStateFlow()
+
     fun carregarDia() {
         val contexto = getApplication<Application>()
+        _temUso.value = Insights.temPermissao(contexto)
+        if (_temUso.value) viewModelScope.launch {
+            _resumoHoje.value = withContext(Dispatchers.IO) { Insights.dia(contexto, java.time.LocalDate.now()) }
+        }
         _fone.value = Ritmo.foneConectado(contexto)
         _alarme.value = Ritmo.proximoAlarme(contexto)?.first
         _temAgenda.value = Agenda.temPermissao(contexto)
