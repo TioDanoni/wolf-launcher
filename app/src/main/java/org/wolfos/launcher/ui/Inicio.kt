@@ -1,5 +1,6 @@
 package org.wolfos.launcher.ui
 
+import org.wolfos.launcher.dados.Gesto
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.draw.clipToBounds
@@ -141,7 +142,10 @@ class AcoesInicio(
     val abrirDia: () -> Unit,
     val abrirWidgets: () -> Unit = {},
     /** Bloquear a tela (nulo: dois toques desligado). Devolve falso se falta ligar o servico. */
-    val bloquear: (() -> Boolean)? = null,
+    /** Faz o que o gesto esta configurado para fazer; falso se faltar ligar o bloqueio. */
+    val gesto: (Gesto) -> Boolean = { true },
+    /** O "tocar duas vezes" faz alguma coisa (senao, nem espera o segundo toque). */
+    val doisToquesAtivo: Boolean = true,
     val ligarBloqueio: () -> Unit = {},
     /** Nulo quando o acesso as notificacoes ja esta ligado; senao, leva para ligar. */
     val permitirAvisos: (() -> Unit)? = null,
@@ -170,9 +174,8 @@ fun Inicio(
     compromissos: (@Composable () -> Unit)? = null,
     /** O painel de apps (Agora e Favoritos), embaixo, perto do polegar. */
     painel: @Composable () -> Unit = {},
-    /** Quantas notificacoes ha e de quem e a ultima (o resumo ao lado da Matilha). */
-    avisosTotal: Int = 0,
-    ultimoAviso: String? = null,
+    /** A marca "WolfLauncher" no topo. */
+    mostrarMarca: Boolean = true,
     /** O player de musica (ou nada). */
     player: (@Composable () -> Unit)? = null,
     /** A fileira da Matilha (ou nada), logo acima da barra de comando. */
@@ -184,18 +187,20 @@ fun Inicio(
     Box(Modifier.fillMaxSize()) {
         AreaDeGestos(
             aoDeslizar = { dx, dy ->
+                // cada gesto faz o que a pessoa escolheu nos ajustes
                 when (direcao(dx, dy)) {
-                    -1 -> acoes.abrirGaveta()
-                    1 -> acoes.abrirNotificacoes()
-                    else -> if (dx > 0) acoes.abrirDia() else acoes.abrirWidgets()
+                    -1 -> acoes.gesto(Gesto.CIMA)
+                    1 -> acoes.gesto(Gesto.BAIXO)
+                    else -> acoes.gesto(if (dx > 0) Gesto.DIREITA else Gesto.ESQUERDA)
                 }
             },
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(acoes.bloquear != null) {
+                .pointerInput(acoes.doisToquesAtivo) {
                     detectTapGestures(
                         onLongPress = { menuAberto = true },
-                        onDoubleTap = acoes.bloquear?.let { bloquear -> { _: Offset -> if (!bloquear()) pedindoBloqueio = true } },
+                        // sem nada no "tocar duas vezes", nao espera o segundo toque (o toque fica mais rapido)
+                        onDoubleTap = if (acoes.doisToquesAtivo) ({ _: Offset -> if (!acoes.gesto(Gesto.DOIS_TOQUES)) pedindoBloqueio = true }) else null,
                     )
                 },
         ) {
@@ -207,7 +212,7 @@ fun Inicio(
                 else -> 1f
             }
             Column(Modifier.fillMaxSize().padding(horizontal = 18.dp)) {
-                Marca(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp))
+                if (mostrarMarca) Marca(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp))
                 if (estiloRelogio == EstiloRelogio.CLASSICO) {
                     Relogio(clima.takeIf { tempo == null }, Modifier.padding(start = 6.dp, top = 22.dp))
                 } else {
@@ -231,12 +236,8 @@ fun Inicio(
                     player()
                 }
                 Spacer(Modifier.height(12.dp))
-                // embaixo: a Matilha e, ao lado, o resumo das notificacoes
-                Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth()) {
-                    Box(Modifier.weight(1f)) { matilha() }
-                    Box(Modifier.padding(horizontal = 6.dp, vertical = 10.dp).size(width = 1.dp, height = 48.dp).background(Texto.copy(alpha = 0.2f)))
-                    ResumoAvisos(avisosTotal, ultimoAviso, acoes.abrirNotificacoes, Modifier.padding(bottom = 14.dp).widthIn(max = 132.dp))
-                }
+                // embaixo: a Matilha
+                matilha()
                 Spacer(Modifier.height(6.dp))
             }
             }

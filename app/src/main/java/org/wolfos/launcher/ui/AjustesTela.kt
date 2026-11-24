@@ -1,80 +1,96 @@
 package org.wolfos.launcher.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Apps
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.EventNote
-import androidx.compose.material.icons.outlined.LocationCity
-import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material.icons.outlined.Bedtime
+import androidx.compose.material.icons.outlined.Brightness6
 import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Contacts
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.EventNote
 import androidx.compose.material.icons.outlined.Gesture
-import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.LocationCity
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.NotificationsNone
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Pets
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SwipeLeft
 import androidx.compose.material.icons.outlined.SwipeRight
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.TouchApp
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Update
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.Wallpaper
 import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import org.wolfos.launcher.atualizacao.Atualizador
 import org.wolfos.launcher.atualizacao.EstadoAtualizacao
+import org.wolfos.launcher.dados.AcaoGesto
 import org.wolfos.launcher.dados.AppInfo
 import org.wolfos.launcher.dados.Cidade
 import org.wolfos.launcher.dados.FonteMatilha
+import org.wolfos.launcher.dados.Gesto
+import org.wolfos.launcher.dados.PacoteIcones
 import org.wolfos.launcher.dados.TipoMatilha
 
 /** Tudo o que os ajustes mostram. */
@@ -90,6 +106,7 @@ class EstadoAjustes(
     val matilhaPeloWhatsapp: Boolean,
     val fonteMatilha: FonteMatilha,
     val fontesMatilha: List<FonteMatilha>,
+    val matilhaSoFixadas: Boolean,
     val mostrarPlayer: Boolean,
     /** O que o player esta vendo agora ("tocando: X (app)", "nenhum app de musica aberto"...). */
     val detalhePlayer: String,
@@ -103,13 +120,17 @@ class EstadoAjustes(
     val estiloRelogio: EstiloRelogio,
     /** ORIGINAL, LINHA, PALETA, CINZA ou "pack:<pacote>". */
     val estiloIcones: String,
-    val pacotesIcones: List<org.wolfos.launcher.dados.PacoteIcones>,
+    val pacotesIcones: List<PacoteIcones>,
+    /** As sugestoes de agora na lista da tela inicial. */
     val ritmo: Boolean,
     val modoNoite: Boolean,
     val janelaNoite: Pair<Int, Int>,
-    val doisToques: Boolean,
+    val mostrarMarca: Boolean,
+    /** LEVE, MEDIO ou FORTE. */
+    val escuroInicio: String,
+    val gestos: Map<Gesto, AcaoGesto>,
     val bloqueioLigado: Boolean,
-    /** Os favoritos do painel (os escolhidos; vazio = o launcher escolhe pelos mais usados). */
+    /** Os favoritos escolhidos (vazio = o launcher usa os mais usados). */
     val favoritos: List<AppInfo>,
     /** Todos os apps (para adicionar favoritos). */
     val todosApps: List<AppInfo>,
@@ -131,6 +152,7 @@ class AcoesAjustes(
     val mostrarMatilha: (Boolean) -> Unit,
     val tipoMatilha: (TipoMatilha) -> Unit,
     val fonteMatilha: (FonteMatilha) -> Unit,
+    val matilhaSoFixadas: (Boolean) -> Unit,
     val mostrarPlayer: (Boolean) -> Unit,
     val tempoLigado: (Boolean) -> Unit,
     val escolherCidade: (Cidade) -> Unit,
@@ -144,73 +166,138 @@ class AcoesAjustes(
     val ritmo: (Boolean) -> Unit,
     val modoNoite: (Boolean) -> Unit,
     val janelaNoite: (Int, Int) -> Unit,
+    val mostrarMarca: (Boolean) -> Unit,
+    val escuroInicio: (String) -> Unit,
+    val gesto: (Gesto, AcaoGesto) -> Unit,
     val adicionarFavorito: (AppInfo) -> Unit,
     val tirarFavorito: (AppInfo) -> Unit,
-    val doisToques: (Boolean) -> Unit,
     val ligarBloqueio: () -> Unit,
     val mostrarApp: (AppInfo) -> Unit,
     val abrirCodigo: () -> Unit,
 )
 
-/** As paginas dos ajustes (a tela principal pode abrir direto numa delas). */
+/** As paginas de dentro dos ajustes (a tela principal pode abrir direto numa delas). */
 object PaginasAjustes {
     const val PRINCIPAL = "principal"
     const val FAVORITOS = "favoritos"
     const val ESCONDIDOS = "escondidos"
-    const val GESTOS = "gestos"
 }
 
-/** Os ajustes do launcher: uma pagina principal e paginas para favoritos, apps escondidos e gestos. */
+/** As abas dos ajustes. */
+private enum class Aba(val titulo: String, val icone: ImageVector) {
+    INICIO("Início", Icons.Outlined.Home),
+    VISUAL("Visual", Icons.Outlined.Palette),
+    MATILHA("Matilha", Icons.Outlined.Pets),
+    GESTOS("Gestos", Icons.Outlined.Gesture),
+    APPS("Apps", Icons.Outlined.Apps),
+    SISTEMA("Sistema", Icons.Outlined.Settings),
+}
+
+/**
+ * Os ajustes em abas (Inicio, Visual, Matilha, Gestos, Apps, Sistema): tocar na aba ou
+ * deslizar para o lado troca. Favoritos e apps escondidos abrem numa pagina propria.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AjustesTela(estado: EstadoAjustes, acoes: AcoesAjustes, paginaInicial: String = PaginasAjustes.PRINCIPAL) {
     var pagina by rememberSaveable { mutableStateOf(paginaInicial) }
-    // voltar numa pagina de dentro volta para a principal
     BackHandler(enabled = pagina != PaginasAjustes.PRINCIPAL) { pagina = PaginasAjustes.PRINCIPAL }
     val voltar = { pagina = PaginasAjustes.PRINCIPAL }
 
-    Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState())) {
-        when (pagina) {
-            PaginasAjustes.FAVORITOS -> PaginaFavoritos(estado, acoes, voltar)
-            PaginasAjustes.ESCONDIDOS -> PaginaEscondidos(estado, acoes, voltar)
-            PaginasAjustes.GESTOS -> PaginaGestos(voltar)
-            else -> PaginaPrincipal(estado, acoes) { pagina = it }
+    when (pagina) {
+        PaginasAjustes.FAVORITOS -> Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState())) {
+            PaginaFavoritos(estado, acoes, voltar)
+        }
+        PaginasAjustes.ESCONDIDOS -> Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState())) {
+            PaginaEscondidos(estado, acoes, voltar)
+        }
+        else -> {
+            val abas = Aba.entries
+            val paginas = rememberPagerState { abas.size }
+            val escopo = rememberCoroutineScope()
+            Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+                Cabecalho("Ajustes", acoes.fechar)
+                textoAtualizacao(estado.atualizacao)?.let { (simbolo, texto, botao) ->
+                    Faixa(simbolo, texto, botao, acoes.atualizar, Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                }
+                BarraDeAbas(abas, paginas.currentPage) { i -> escopo.launch { paginas.animateScrollToPage(i) } }
+                HorizontalPager(paginas, Modifier.fillMaxSize(), beyondViewportPageCount = 1) { i ->
+                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+                        when (abas[i]) {
+                            Aba.INICIO -> AbaInicio(estado, acoes) { pagina = it }
+                            Aba.VISUAL -> AbaVisual(estado, acoes)
+                            Aba.MATILHA -> AbaMatilha(estado, acoes)
+                            Aba.GESTOS -> AbaGestos(estado, acoes)
+                            Aba.APPS -> AbaApps(estado) { pagina = it }
+                            Aba.SISTEMA -> AbaSistema(estado, acoes)
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
+/** As abas em pilulas que rolam para o lado; a marcada fica com o degrade da paleta. */
 @Composable
-private fun PaginaPrincipal(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (String) -> Unit) {
-    var procurando by remember { mutableStateOf<String?>(null) }
-    Cabecalho("Ajustes", acoes.fechar)
-
-    textoAtualizacao(estado.atualizacao)?.let { (simbolo, texto, botao) ->
-        Faixa(simbolo, texto, botao, acoes.atualizar, Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+private fun BarraDeAbas(abas: List<Aba>, atual: Int, aoEscolher: (Int) -> Unit) {
+    val cor = MaterialTheme.colorScheme.primary
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        abas.forEachIndexed { i, a ->
+            val marcada = i == atual
+            val largura by animateDpAsState(if (marcada) 1.5.dp else 1.dp, label = "borda")
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(if (marcada) Brush.linearGradient(listOf(cor.copy(alpha = 0.28f), MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f))) else Brush.linearGradient(listOf(Color.Transparent, Color.Transparent)))
+                    .border(largura, if (marcada) cor else Texto.copy(alpha = 0.14f), CircleShape)
+                    .clickable { aoEscolher(i) }
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+            ) {
+                Icon(a.icone, contentDescription = null, tint = if (marcada) cor else TextoFraco, modifier = Modifier.size(18.dp))
+                Text(
+                    a.titulo, color = if (marcada) Texto else TextoFraco, fontSize = 14.sp,
+                    fontWeight = if (marcada) FontWeight.SemiBold else FontWeight.Normal,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+        }
     }
-    if (!estado.ehPadrao) {
-        LinhaMenu(Icons.Outlined.Home, "Usar como tela inicial", "o WolfLauncher ainda não é a tela inicial", fim = { Seta() }, aoTocar = acoes.definirPadrao)
-    }
+}
 
+// ---------------------------------------------------------------- Inicio
+
+@Composable
+private fun AbaInicio(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (String) -> Unit) {
     SecaoMenu("Relógio")
     Row(
         horizontalArrangement = Arrangement.SpaceBetween,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 6.dp),
     ) {
         for (e in EstiloRelogio.entries) {
             val marcado = e == estado.estiloRelogio
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
+                    .padding(horizontal = 3.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(if (marcado) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f) else Color.Transparent)
                     .border(1.dp, if (marcado) MaterialTheme.colorScheme.primary else Texto.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
                     .clickable { acoes.estiloRelogio(e) }
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
             ) {
                 Text(
-                    if (e == EstiloRelogio.MANUSCRITO) "Ter." else "12",
+                    when (e) {
+                        EstiloRelogio.MANUSCRITO -> "Ter."
+                        else -> "12"
+                    },
                     fontFamily = fonteDoEstilo(e),
                     fontSize = 30.sp,
-                    fontWeight = if (e == EstiloRelogio.CLASSICO) FontWeight.Light else FontWeight.Normal,
+                    fontWeight = if (e == EstiloRelogio.CLASSICO || e == EstiloRelogio.VERTICAL) FontWeight.Light else FontWeight.Normal,
                     style = androidx.compose.ui.text.TextStyle(brush = Brush.verticalGradient(listOf(Texto, MaterialTheme.colorScheme.primary))),
                 )
                 Text(e.titulo, color = if (marcado) Texto else TextoFraco, fontSize = 11.sp, maxLines = 1)
@@ -218,41 +305,52 @@ private fun PaginaPrincipal(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (
         }
     }
 
-    SecaoMenu("Ícones")
-    // a previa: alguns apps de verdade, no estilo escolhido
-    Row(
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp),
-    ) {
-        for (app in (estado.favoritos + estado.todosApps).distinctBy { it.chave }.take(6)) IconeApp(app, 40.dp)
-    }
-    val estilos = listOf("ORIGINAL" to "Coloridos", "LINHA" to "Em linha", "PALETA" to "Na cor da paleta", "CINZA" to "Cinza suave")
-    Pilulas(estilos.map { it.second }, estilos.indexOfFirst { it.first == estado.estiloIcones }) { acoes.estiloIcones(estilos[it].first) }
-    Text(
-        "“Em linha” e “Na cor da paleta” usam o ícone temático do Android 13+; app sem ele aparece em cinza.",
-        color = TextoFraco, fontSize = 12.sp, modifier = Modifier.padding(start = 78.dp, end = 24.dp, bottom = 4.dp),
-    )
-    for (p in estado.pacotesIcones) {
-        val marcado = estado.estiloIcones == "pack:" + p.pacote
-        LinhaMenu(
-            Icons.Outlined.Palette, p.nome, if (marcado) "em uso" else "pacote de ícones",
-            fim = { if (marcado) Valor("✓") },
-        ) { acoes.estiloIcones("pack:" + p.pacote) }
-    }
+    SecaoMenu("Clima")
+    var escolhendoCidade by remember { mutableStateOf(false) }
     LinhaMenu(
-        Icons.Outlined.Download, "Baixar pacotes de ícones",
-        if (estado.pacotesIcones.isEmpty()) "nenhum instalado; a Play Store tem muitos (padrão Nova/ADW)" else "mais na Play Store",
-        fim = { Seta() }, aoTocar = acoes.baixarPacotes,
-    )
+        Icons.Outlined.WbSunny, "Mostrar o clima", "embaixo do relógio (Open-Meteo, sem cadastro)",
+        fim = { ChaveWolf(estado.tempoLigado, acoes.tempoLigado) },
+    ) { acoes.tempoLigado(!estado.tempoLigado) }
+    if (estado.tempoLigado) {
+        LinhaMenu(Icons.Outlined.LocationCity, "Cidade", estado.cidade ?: "escolha uma cidade", fim = { Seta() }) { escolhendoCidade = true }
+        Pilulas(listOf("Celsius (°C)", "Fahrenheit (°F)"), if (estado.fahrenheit) 1 else 0) { acoes.fahrenheit(it == 1) }
+    }
+    if (escolhendoCidade) {
+        EscolherCidade(aoEscolher = { acoes.escolherCidade(it); escolhendoCidade = false }, aoFechar = { escolhendoCidade = false })
+    }
 
+    SecaoMenu("Hoje")
+    LinhaMenu(
+        Icons.Outlined.EventNote, "Compromissos de hoje", "da Google Agenda; só aparecem quando há algo no dia",
+        fim = { ChaveWolf(estado.compromissos, acoes.compromissos) },
+    ) { acoes.compromissos(!estado.compromissos) }
+    LinhaMenu(
+        Icons.Outlined.MusicNote, "Player de música",
+        if (estado.avisosPermitidos) "quando algo toca · agora: ${estado.detalhePlayer}" else "precisa do acesso às notificações (aba Sistema)",
+        fim = { ChaveWolf(estado.mostrarPlayer, acoes.mostrarPlayer) },
+    ) { if (estado.avisosPermitidos) acoes.mostrarPlayer(!estado.mostrarPlayer) else acoes.permitirAvisos() }
+
+    SecaoMenu("Lista de apps")
+    LinhaMenu(
+        Icons.Outlined.PushPin, "Favoritos",
+        if (estado.favoritos.isEmpty()) "nenhum fixado: a lista mostra os mais usados" else "${estado.favoritos.size} fixado(s)",
+        fim = { Seta() },
+    ) { abrir(PaginasAjustes.FAVORITOS) }
+    LinhaMenu(
+        Icons.Outlined.Schedule, "Sugestões de agora",
+        "completa a lista com o que você costuma abrir nesta hora, mensagens e música",
+        fim = { ChaveWolf(estado.ritmo, acoes.ritmo) },
+    ) { acoes.ritmo(!estado.ritmo) }
+}
+
+// ---------------------------------------------------------------- Visual
+
+@Composable
+private fun AbaVisual(estado: EstadoAjustes, acoes: AcoesAjustes) {
     SecaoMenu("Cores")
-    Text(
-        "As cores do WolfLauncher (relógio, traços, busca, player, aurora). À noite fica lilás.",
-        color = TextoFraco, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 24.dp),
-    )
     Row(
         horizontalArrangement = Arrangement.SpaceBetween,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp),
     ) {
         for (p in Paleta.entries) {
             val marcada = p == estado.paleta
@@ -269,80 +367,55 @@ private fun PaginaPrincipal(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (
                 )
                 Text(
                     p.titulo, color = if (marcada) Texto else TextoFraco, fontSize = 11.5.sp,
-                    fontWeight = if (marcada) FontWeight.SemiBold else FontWeight.Normal,
-                    maxLines = 1, modifier = Modifier.padding(top = 6.dp),
+                    fontWeight = if (marcada) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1,
+                    modifier = Modifier.padding(top = 6.dp),
                 )
             }
         }
     }
 
-    SecaoMenu("Topo")
-    var escolhendoCidade by remember { mutableStateOf(false) }
-    LinhaMenu(
-        Icons.Outlined.WbSunny, "Clima", "temperatura, máxima e mínima embaixo do relógio (Open-Meteo)",
-        fim = { ChaveWolf(estado.tempoLigado, acoes.tempoLigado) },
-    ) { acoes.tempoLigado(!estado.tempoLigado) }
-    if (estado.tempoLigado) {
-        LinhaMenu(
-            Icons.Outlined.LocationCity, "Cidade",
-            estado.cidade ?: "escolha uma cidade",
-            fim = { Seta() },
-        ) { escolhendoCidade = true }
-        Pilulas(listOf("Celsius (°C)", "Fahrenheit (°F)"), if (estado.fahrenheit) 1 else 0) { acoes.fahrenheit(it == 1) }
+    SecaoMenu("Ícones")
+    Row(
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp),
+    ) {
+        for (app in (estado.favoritos + estado.todosApps).distinctBy { it.chave }.take(6)) IconeApp(app, 40.dp)
     }
-    if (escolhendoCidade) {
-        EscolherCidade(aoEscolher = { acoes.escolherCidade(it); escolhendoCidade = false }, aoFechar = { escolhendoCidade = false })
+    val estilos = listOf("ORIGINAL" to "Coloridos", "LINHA" to "Em linha", "PALETA" to "Na cor da paleta", "CINZA" to "Cinza suave")
+    Pilulas(estilos.map { it.second }, estilos.indexOfFirst { it.first == estado.estiloIcones }) { acoes.estiloIcones(estilos[it].first) }
+    Text(
+        "“Em linha” e “Na cor da paleta” usam o ícone temático do Android 13+; app sem ele aparece em cinza.",
+        color = TextoFraco, fontSize = 12.sp, modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 4.dp),
+    )
+    for (p in estado.pacotesIcones) {
+        val marcado = estado.estiloIcones == "pack:" + p.pacote
+        LinhaMenu(Icons.Outlined.Palette, p.nome, if (marcado) "em uso" else "pacote de ícones", fim = { if (marcado) Valor("✓") }) {
+            acoes.estiloIcones("pack:" + p.pacote)
+        }
     }
     LinhaMenu(
-        Icons.Outlined.EventNote, "Compromissos de hoje", "da Google Agenda, embaixo do clima",
-        fim = { ChaveWolf(estado.compromissos, acoes.compromissos) },
-    ) { acoes.compromissos(!estado.compromissos) }
+        Icons.Outlined.Download, "Baixar pacotes de ícones",
+        if (estado.pacotesIcones.isEmpty()) "nenhum instalado; a Play Store tem muitos (padrão Nova/ADW)" else "mais na Play Store",
+        fim = { Seta() }, aoTocar = acoes.baixarPacotes,
+    )
+
+    SecaoMenu("Fundo")
+    LinhaMenu(Icons.Outlined.Brightness6, "Escurecer o wallpaper", "o quanto a tela inicial escurece para o texto ler bem")
+    val niveis = listOf("LEVE" to "Leve", "MEDIO" to "Médio", "FORTE" to "Forte")
+    Pilulas(niveis.map { it.second }, niveis.indexOfFirst { it.first == estado.escuroInicio }) { acoes.escuroInicio(niveis[it].first) }
     LinhaMenu(
         Icons.Outlined.AutoAwesome, "Fundo animado", "a aurora se mexe devagar (gasta um pouquinho de bateria)",
         fim = { ChaveWolf(estado.fundoAnimado, acoes.fundoAnimado) },
     ) { acoes.fundoAnimado(!estado.fundoAnimado) }
+    LinhaMenu(Icons.Outlined.Wallpaper, "Papel de parede", "a cor da paleta “Do wallpaper” vem dele", fim = { Seta() }, aoTocar = acoes.papelDeParede)
+    LinhaMenu(
+        Icons.Outlined.Tune, "Marca no topo", "“WolfLauncher” com o lobo, em cima do relógio",
+        fim = { ChaveWolf(estado.mostrarMarca, acoes.mostrarMarca) },
+    ) { acoes.mostrarMarca(!estado.mostrarMarca) }
 
-    SecaoMenu("Tela inicial")
+    SecaoMenu("Modo noite")
     LinhaMenu(
-        Icons.Outlined.PushPin, "Favoritos",
-        if (estado.favoritos.isEmpty()) "nenhum fixado: o painel mostra os mais usados" else "${estado.favoritos.size} fixado(s) no painel",
-        fim = { Seta() },
-    ) { abrir(PaginasAjustes.FAVORITOS) }
-    LinhaMenu(
-        Icons.Outlined.MusicNote, "Player de música",
-        if (estado.avisosPermitidos) "aparece quando algo toca · agora: ${estado.detalhePlayer}"
-        else "precisa do acesso às notificações (em Permissões)",
-        fim = { ChaveWolf(estado.mostrarPlayer, acoes.mostrarPlayer) },
-    ) { if (estado.avisosPermitidos) acoes.mostrarPlayer(!estado.mostrarPlayer) else acoes.permitirAvisos() }
-    LinhaMenu(
-        Icons.Outlined.Groups, "Matilha",
-        if (estado.matilhaPeloWhatsapp) "as conversas recentes do WhatsApp; segure uma para fixar"
-        else "as pessoas da agenda (com o WhatsApp, viram as conversas)",
-        fim = { ChaveWolf(estado.mostrarMatilha, acoes.mostrarMatilha) },
-    ) { acoes.mostrarMatilha(!estado.mostrarMatilha) }
-    if (estado.mostrarMatilha) {
-        if (estado.fontesMatilha.size > 1) {
-            Text("De onde vêm", color = TextoFraco, fontSize = 12.5.sp, modifier = Modifier.padding(start = 78.dp, bottom = 6.dp))
-            Pilulas(estado.fontesMatilha.map { it.titulo }, estado.fontesMatilha.indexOf(estado.fonteMatilha)) {
-                acoes.fonteMatilha(estado.fontesMatilha[it])
-            }
-        }
-        if (estado.matilhaPeloWhatsapp) {
-            Text("Mostrar", color = TextoFraco, fontSize = 12.5.sp, modifier = Modifier.padding(start = 78.dp, top = 4.dp, bottom = 6.dp))
-            Pilulas(TipoMatilha.entries.map { it.titulo }, TipoMatilha.entries.indexOf(estado.tipoMatilha)) {
-                acoes.tipoMatilha(TipoMatilha.entries[it])
-            }
-        }
-    }
-    LinhaMenu(Icons.Outlined.Wallpaper, "Papel de parede", "a cor de destaque vem dele (Android 12+)", fim = { Seta() }, aoTocar = acoes.papelDeParede)
-
-    SecaoMenu("Ritmo do dia")
-    LinhaMenu(
-        Icons.Outlined.Schedule, "Sugestões de agora", "a fileira “Agora”: o que você costuma abrir nesta hora, mensagens e música",
-        fim = { ChaveWolf(estado.ritmo, acoes.ritmo) },
-    ) { acoes.ritmo(!estado.ritmo) }
-    LinhaMenu(
-        Icons.Outlined.Bedtime, "Modo noite", "cor calma e o despertador no topo",
+        Icons.Outlined.Bedtime, "Modo noite", "cor lilás e calma, e o despertador no topo",
         fim = { ChaveWolf(estado.modoNoite, acoes.modoNoite) },
     ) { acoes.modoNoite(!estado.modoNoite) }
     if (estado.modoNoite) {
@@ -352,30 +425,109 @@ private fun PaginaPrincipal(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (
             acoes.janelaNoite(janelas[i].first, janelas[i].second)
         }
     }
+}
 
+// ---------------------------------------------------------------- Matilha
+
+@Composable
+private fun AbaMatilha(estado: EstadoAjustes, acoes: AcoesAjustes) {
+    SecaoMenu("Matilha")
+    LinhaMenu(
+        Icons.Outlined.Groups, "Mostrar a Matilha", "as pessoas e conversas no polegar, embaixo da lista",
+        fim = { ChaveWolf(estado.mostrarMatilha, acoes.mostrarMatilha) },
+    ) { acoes.mostrarMatilha(!estado.mostrarMatilha) }
+    if (!estado.mostrarMatilha) return
+
+    if (estado.fontesMatilha.size > 1) {
+        SecaoMenu("De onde vêm")
+        Pilulas(estado.fontesMatilha.map { it.titulo }, estado.fontesMatilha.indexOf(estado.fonteMatilha)) {
+            acoes.fonteMatilha(estado.fontesMatilha[it])
+        }
+    }
+    SecaoMenu("Quais aparecem")
+    Pilulas(listOf("Recentes e fixadas", "Só as fixadas"), if (estado.matilhaSoFixadas) 1 else 0) { acoes.matilhaSoFixadas(it == 1) }
+    Text(
+        if (estado.matilhaSoFixadas) "Só as conversas que você fixou (segure uma › Fixar, ou toque no + da Matilha)."
+        else "As fixadas primeiro; depois quem está esperando resposta e as que você mais usa.",
+        color = TextoFraco, fontSize = 12.5.sp, modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 4.dp),
+    )
+    if (estado.matilhaPeloWhatsapp) {
+        SecaoMenu("Pessoas ou grupos")
+        Pilulas(TipoMatilha.entries.map { it.titulo }, TipoMatilha.entries.indexOf(estado.tipoMatilha)) {
+            acoes.tipoMatilha(TipoMatilha.entries[it])
+        }
+    }
+}
+
+// ---------------------------------------------------------------- Gestos
+
+@Composable
+private fun AbaGestos(estado: EstadoAjustes, acoes: AcoesAjustes) {
+    var aberto by remember { mutableStateOf<Gesto?>(null) }
+    SecaoMenu("O que cada gesto faz")
+    for (g in Gesto.entries) {
+        val atual = estado.gestos[g] ?: AcaoGesto.NADA
+        val icone = when (g) {
+            Gesto.CIMA -> Icons.Outlined.KeyboardArrowUp
+            Gesto.BAIXO -> Icons.Outlined.KeyboardArrowDown
+            Gesto.DIREITA -> Icons.Outlined.SwipeRight
+            Gesto.ESQUERDA -> Icons.Outlined.SwipeLeft
+            Gesto.DOIS_TOQUES -> Icons.Outlined.TouchApp
+        }
+        LinhaMenu(icone, g.titulo, atual.titulo, fim = { Seta() }) { aberto = if (aberto == g) null else g }
+        if (aberto == g) {
+            // tocar duas vezes nao abre telas de deslizar; o resto pode tudo menos bloquear de lado
+            val opcoes = AcaoGesto.entries
+            Pilulas(opcoes.map { it.titulo }, opcoes.indexOf(atual)) { i -> acoes.gesto(g, opcoes[i]); aberto = null }
+        }
+    }
+    if (estado.gestos.values.any { it == AcaoGesto.BLOQUEAR } && !estado.bloqueioLigado) {
+        LinhaMenu(
+            Icons.Outlined.Lock, "Ligar o bloqueio", "para “Bloquear a tela” funcionar, ligue o WolfLauncher na acessibilidade",
+            fim = { Seta() }, aoTocar = acoes.ligarBloqueio,
+        )
+    }
+    SecaoMenu("Sempre")
+    LinhaMenu(Icons.Outlined.Apps, "Segurar um app", "mensagens, atalhos, favoritos, renomear, esconder, desinstalar")
+    LinhaMenu(Icons.Outlined.Home, "Segurar um espaço vazio", "o menu do launcher")
+    LinhaMenu(Icons.Outlined.TouchApp, "Alfabeto na direita", "arrastar mostra os apps da letra; volta sozinho")
+}
+
+// ---------------------------------------------------------------- Apps
+
+@Composable
+private fun AbaApps(estado: EstadoAjustes, abrir: (String) -> Unit) {
     SecaoMenu("Apps")
     LinhaMenu(
+        Icons.Outlined.PushPin, "Favoritos",
+        if (estado.favoritos.isEmpty()) "nenhum fixado: a lista mostra os mais usados" else "${estado.favoritos.size} fixado(s) · reorganizar e tirar",
+        fim = { Seta() },
+    ) { abrir(PaginasAjustes.FAVORITOS) }
+    LinhaMenu(
         Icons.Outlined.VisibilityOff, "Apps escondidos",
-        if (estado.appsEscondidos.isEmpty()) "nenhum; segure um app para esconder" else "${estado.appsEscondidos.size} escondido(s)",
+        if (estado.appsEscondidos.isEmpty()) "nenhum; segure um app › Esconder" else "${estado.appsEscondidos.size} escondido(s)",
         fim = { Seta() },
     ) { abrir(PaginasAjustes.ESCONDIDOS) }
-    LinhaMenu(Icons.Outlined.Gesture, "Gestos", "o que cada movimento faz", fim = { Seta() }) { abrir(PaginasAjustes.GESTOS) }
-    LinhaMenu(
-        Icons.Outlined.Lock, "Tocar duas vezes para bloquear",
-        when {
-            !estado.doisToques -> "desligado"
-            estado.bloqueioLigado -> "num espaço vazio da tela inicial"
-            else -> "falta ligar na acessibilidade: toque aqui"
-        },
-        fim = { ChaveWolf(estado.doisToques, acoes.doisToques) },
-    ) { if (estado.doisToques && !estado.bloqueioLigado) acoes.ligarBloqueio() else acoes.doisToques(!estado.doisToques) }
+    Text(
+        "Para renomear um app, segure ele (na lista, no buscador ou em todos os apps) › Renomear.",
+        color = TextoFraco, fontSize = 12.5.sp, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+    )
+}
+
+// ---------------------------------------------------------------- Sistema
+
+@Composable
+private fun AbaSistema(estado: EstadoAjustes, acoes: AcoesAjustes) {
+    var procurando by remember { mutableStateOf<String?>(null) }
+    if (!estado.ehPadrao) {
+        SecaoMenu("Tela inicial")
+        LinhaMenu(Icons.Outlined.Home, "Usar como tela inicial", "o WolfLauncher ainda não é a tela inicial", fim = { Seta() }, aoTocar = acoes.definirPadrao)
+    }
 
     SecaoMenu("Permissões")
     LinhaMenu(
-        Icons.Outlined.NotificationsNone, "Notificações",
-        "números nos apps, mensagens, Matilha e o player",
-        fim = { Valor(if (estado.avisosPermitidos) "ligado" else "permitir") },
-        aoTocar = acoes.permitirAvisos,
+        Icons.Outlined.NotificationsNone, "Notificações", "números nos apps, mensagens, Matilha e o player",
+        fim = { Valor(if (estado.avisosPermitidos) "ligado" else "permitir") }, aoTocar = acoes.permitirAvisos,
     )
     if (!estado.avisosPermitidos) {
         LinhaMenu(
@@ -385,21 +537,23 @@ private fun PaginaPrincipal(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (
         )
     }
     LinhaMenu(
-        Icons.Outlined.CalendarMonth, "Agenda", "o próximo compromisso e o seu dia",
-        fim = { Valor(if (estado.temAgenda) "ligado" else "permitir") },
-        aoTocar = if (estado.temAgenda) null else acoes.permitirAgenda,
+        Icons.Outlined.CalendarMonth, "Agenda", "os compromissos de hoje e o seu dia",
+        fim = { Valor(if (estado.temAgenda) "ligado" else "permitir") }, aoTocar = if (estado.temAgenda) null else acoes.permitirAgenda,
     )
     LinhaMenu(
-        Icons.Outlined.Contacts, "Contatos", "“ligar mãe” na busca e a Matilha sem WhatsApp",
-        fim = { Valor(if (estado.temContatos) "ligado" else "permitir") },
-        aoTocar = if (estado.temContatos) null else acoes.permitirContatos,
+        Icons.Outlined.Contacts, "Contatos", "pessoas no buscador e nomes na Matilha",
+        fim = { Valor(if (estado.temContatos) "ligado" else "permitir") }, aoTocar = if (estado.temContatos) null else acoes.permitirContatos,
+    )
+    LinhaMenu(
+        Icons.Outlined.Lock, "Bloquear a tela", "serviço de acessibilidade (não lê nada da tela)",
+        fim = { Valor(if (estado.bloqueioLigado) "ligado" else "ligar") }, aoTocar = acoes.ligarBloqueio,
     )
 
     SecaoMenu("Atualizações")
     LinhaMenu(Icons.Outlined.Update, "Procurar atualização agora", procurando ?: "versão instalada: ${Atualizador.versaoAtual}") {
         procurando = "procurando…"
         acoes.procurar { achou ->
-            procurando = if (achou) "tem versão nova: veja o aviso acima" else "você já está na última (${Atualizador.versaoAtual})"
+            procurando = if (achou) "tem versão nova: veja o aviso no topo" else "você já está na última (${Atualizador.versaoAtual})"
         }
     }
     LinhaMenu(
@@ -463,19 +617,6 @@ private fun PaginaEscondidos(estado: EstadoAjustes, acoes: AcoesAjustes, voltar:
             Pilula("Mostrar", destaque = true) { acoes.mostrarApp(app) }
         }
     }
-}
-
-@Composable
-private fun PaginaGestos(voltar: () -> Unit) {
-    Cabecalho("Gestos", voltar)
-    LinhaMenu(Icons.Outlined.KeyboardArrowUp, "Deslizar para cima", "o buscador: apps, conversas, pessoas, contas, ajustes e a web")
-    LinhaMenu(Icons.Outlined.KeyboardArrowDown, "Deslizar para baixo", "a cortina de notificações")
-    LinhaMenu(Icons.Outlined.SwipeRight, "Deslizar para a direita", "seu dia: antes, agora e depois")
-    LinhaMenu(Icons.Outlined.SwipeLeft, "Deslizar para a esquerda", "o painel de widgets")
-    LinhaMenu(Icons.Outlined.Lock, "Tocar duas vezes", "bloqueia a tela (liga em Ajustes)")
-    LinhaMenu(Icons.Outlined.Apps, "Segurar um app", "mensagens, atalhos, favoritos, renomear, esconder, desinstalar")
-    LinhaMenu(Icons.Outlined.Home, "Segurar um espaço vazio", "o menu do launcher")
-    LinhaMenu(Icons.Outlined.Search, "Barra de busca", "apps, pessoas, contas, timer, alarme, lanterna, ajustes do Android")
 }
 
 /** Opcoes em pilulas, uma marcada. */

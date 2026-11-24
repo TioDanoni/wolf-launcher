@@ -248,39 +248,3 @@ private fun Barrinhas(cor: Color, modifier: Modifier = Modifier) {
         }
     }
 }
-
-/** O resumo das notificacoes, ao lado da Matilha: o sino, quantas e de quem e a ultima. */
-@Composable
-fun ResumoAvisos(total: Int, ultima: String?, aoTocar: () -> Unit, modifier: Modifier = Modifier) {
-    val cor = MaterialTheme.colorScheme.primary
-    // o sino balanca um pouco quando ha notificacao
-    val t = rememberInfiniteTransition(label = "sino")
-    val giro by t.animateFloat(-10f, 10f, infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse), label = "giro")
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier.clip(RoundedCornerShape(16.dp)).clickable(onClick = aoTocar).padding(horizontal = 8.dp, vertical = 6.dp),
-    ) {
-        Icon(
-            if (total > 0) Icons.Outlined.NotificationsActive else Icons.Outlined.NotificationsNone,
-            contentDescription = null,
-            tint = if (total > 0) cor else TextoFraco,
-            modifier = Modifier.size(22.dp).graphicsLayer { if (total > 0) rotationZ = giro },
-        )
-        Column(Modifier.padding(start = 10.dp)) {
-            Text(
-                when (total) {
-                    0 -> "Nenhuma"
-                    1 -> "1 notificação"
-                    else -> "$total notificações"
-                },
-                color = Texto, fontSize = 13.sp, fontWeight = if (total > 0) FontWeight.SemiBold else FontWeight.Normal,
-                maxLines = 1, style = TextStyle(shadow = SombraTexto),
-            )
-            Text(
-                if (total == 0) "notificação" else ultima.orEmpty(),
-                color = if (total > 0) cor else TextoFraco, fontSize = 11.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                style = TextStyle(shadow = SombraTexto),
-            )
-        }
-    }
-}

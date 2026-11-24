@@ -185,6 +185,7 @@ object Conversas {
         avisos: List<Aviso>,
         uso: Map<String, UsoConversa> = emptyMap(),
         maximo: Int = 10,
+        soFixadas: Boolean = false,
     ): List<Conversa> {
         val porChave = todas.associateBy { it.chave }
         val doTipo = { c: Conversa ->
@@ -195,6 +196,7 @@ object Conversas {
             }
         }
         val fixas = fixadas.mapNotNull { porChave[it] }
+        if (soFixadas) return fixas.take(maximo)
         val resto = todas.filter { it.chave !in fixadas && doTipo(it) }
             .sortedByDescending { nota(it, uso[it.chave], avisos) }
         return (fixas + resto).take(maximo)

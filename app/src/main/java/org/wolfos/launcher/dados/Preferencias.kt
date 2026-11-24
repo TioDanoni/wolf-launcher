@@ -49,6 +49,32 @@ class Preferencias(contexto: Context) {
         get() = prefs.getString("estilo_icones", null) ?: if (prefs.getBoolean("icones_linha", false)) "LINHA" else "ORIGINAL"
         set(v) = prefs.edit().putString("estilo_icones", v).apply()
 
+    /** A Matilha so com as conversas fixadas (sem as recentes). */
+    var matilhaSoFixadas: Boolean
+        get() = prefs.getBoolean("matilha_so_fixadas", false)
+        set(v) = prefs.edit().putBoolean("matilha_so_fixadas", v).apply()
+
+    /** A marca "WolfLauncher" no topo da tela inicial. */
+    var mostrarMarca: Boolean
+        get() = prefs.getBoolean("mostrar_marca", true)
+        set(v) = prefs.edit().putBoolean("mostrar_marca", v).apply()
+
+    /** O quanto o wallpaper escurece na tela inicial: LEVE, MEDIO ou FORTE. */
+    var escuroInicio: String
+        get() = prefs.getString("escuro_inicio", "MEDIO") ?: "MEDIO"
+        set(v) = prefs.edit().putString("escuro_inicio", v).apply()
+
+    /** O que cada gesto faz (o "tocar duas vezes" antigo vira Bloquear ou Nada). */
+    fun gestos(): Map<Gesto, AcaoGesto> = Gesto.entries.associateWith { g ->
+        val salvo = prefs.getString("gesto_${g.name}", null)
+        AcaoGesto.entries.firstOrNull { it.name == salvo }
+            ?: if (g == Gesto.DOIS_TOQUES && !doisToques) AcaoGesto.NADA else Gestos.PADRAO.getValue(g)
+    }
+
+    fun definirGesto(g: Gesto, a: AcaoGesto) {
+        prefs.edit().putString("gesto_${g.name}", a.name).apply()
+    }
+
     /** A fileira da Matilha na tela inicial. */
     var mostrarMatilha: Boolean
         get() = prefs.getBoolean("mostrar_matilha", true)

@@ -43,6 +43,8 @@ import org.wolfos.launcher.dados.Favoritos
 import org.wolfos.launcher.dados.Icones
 import org.wolfos.launcher.dados.Matilha
 import org.wolfos.launcher.dados.Cidade
+import org.wolfos.launcher.dados.AcaoGesto
+import org.wolfos.launcher.dados.Gesto
 import org.wolfos.launcher.dados.Padrao
 import org.wolfos.launcher.dados.PacoteIcones
 import org.wolfos.launcher.ui.EstiloRelogio
@@ -261,6 +263,23 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         Icones.definirEstilo(e)
         _estiloIcones.value = e
     }
+
+    // ---- opcoes da tela inicial: Matilha so fixadas, marca, escuro do fundo, gestos
+    private val _matilhaSoFixadas = MutableStateFlow(preferencias.matilhaSoFixadas)
+    val matilhaSoFixadas: StateFlow<Boolean> = _matilhaSoFixadas.asStateFlow()
+    fun definirMatilhaSoFixadas(v: Boolean) { preferencias.matilhaSoFixadas = v; _matilhaSoFixadas.value = v }
+
+    private val _mostrarMarca = MutableStateFlow(preferencias.mostrarMarca)
+    val mostrarMarca: StateFlow<Boolean> = _mostrarMarca.asStateFlow()
+    fun definirMostrarMarca(v: Boolean) { preferencias.mostrarMarca = v; _mostrarMarca.value = v }
+
+    private val _escuroInicio = MutableStateFlow(preferencias.escuroInicio)
+    val escuroInicio: StateFlow<String> = _escuroInicio.asStateFlow()
+    fun definirEscuroInicio(v: String) { preferencias.escuroInicio = v; _escuroInicio.value = v }
+
+    private val _gestos = MutableStateFlow(preferencias.gestos())
+    val gestos: StateFlow<Map<Gesto, AcaoGesto>> = _gestos.asStateFlow()
+    fun definirGesto(g: Gesto, a: AcaoGesto) { preferencias.definirGesto(g, a); _gestos.value = preferencias.gestos() }
 
     private val _paleta = MutableStateFlow(Paleta.entries.firstOrNull { it.name == preferencias.paleta } ?: Paleta.LOBO)
     val paleta: StateFlow<Paleta> = _paleta.asStateFlow()

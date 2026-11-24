@@ -45,7 +45,9 @@ import org.wolfos.launcher.avisos.Tocando
 import org.wolfos.launcher.dados.Agenda
 import org.wolfos.launcher.dados.AppInfo
 import org.wolfos.launcher.bloqueio.Bloqueio
+import org.wolfos.launcher.dados.AcaoGesto
 import org.wolfos.launcher.dados.Apps
+import org.wolfos.launcher.dados.Gesto
 import org.wolfos.launcher.dados.Widgets
 import org.wolfos.launcher.dados.Atalhos
 import org.wolfos.launcher.dados.Contatos
@@ -222,7 +224,10 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
             mostrarPlayer && (m.tocando || android.os.SystemClock.elapsedRealtime() - m.atualizadoEm < 15 * 60_000L)
         }
     }
-    val doisToques by vm.doisToques.collectAsStateWithLifecycle()
+    val gestos by vm.gestos.collectAsStateWithLifecycle()
+    val matilhaSoFixadas by vm.matilhaSoFixadas.collectAsStateWithLifecycle()
+    val mostrarMarca by vm.mostrarMarca.collectAsStateWithLifecycle()
+    val escuroInicio by vm.escuroInicio.collectAsStateWithLifecycle()
     val bloqueioLigado by vm.bloqueioLigado.collectAsStateWithLifecycle()
     var paginaAjustes by rememberSaveable { mutableStateOf(PaginasAjustes.PRINCIPAL) }
 
@@ -323,7 +328,6 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
             if (a.titulo.isNotEmpty() && a.texto.isNotEmpty()) "${a.titulo}: ${a.texto}" else a.titulo + a.texto
         }
     }
-    val ultimoAviso = avisos.firstOrNull()?.let { a -> a.titulo.ifEmpty { apps.firstOrNull { it.pacote == a.pacote }?.nome.orEmpty() } }
     val pessoas = remember(contatos, matilhaIds) { Matilha.pessoas(contatos, matilhaIds) }
     val acoesAviso = AcoesAviso(
         abrir = { a ->
@@ -362,8 +366,20 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         abrirNotificacoes = { Apps.abrirNotificacoes(contexto) },
         abrirAjustes = { paginaAjustes = PaginasAjustes.PRINCIPAL; tela = Telas.AJUSTES },
         abrirWidgets = { tela = Telas.WIDGETS },
-        bloquear = if (doisToques) ({ Bloqueio.bloquear() }) else null,
         ligarBloqueio = { Bloqueio.pedirPermissao(contexto) },
+        // cada gesto faz o que a pessoa escolheu (aba Gestos dos ajustes)
+        gesto = { g ->
+            when (gestos[g] ?: AcaoGesto.NADA) {
+                AcaoGesto.BUSCA -> { comando = ""; tela = Telas.COMANDO; true }
+                AcaoGesto.TODOS_APPS -> { busca = ""; tela = Telas.GAVETA; true }
+                AcaoGesto.NOTIFICACOES -> { Apps.abrirNotificacoes(contexto); true }
+                AcaoGesto.DIA -> { vm.carregarDia(); tela = Telas.DIA; true }
+                AcaoGesto.WIDGETS -> { tela = Telas.WIDGETS; true }
+                AcaoGesto.BLOQUEAR -> Bloqueio.bloquear()
+                AcaoGesto.NADA -> true
+            }
+        },
+        doisToquesAtivo = (gestos[Gesto.DOIS_TOQUES] ?: AcaoGesto.NADA) != AcaoGesto.NADA,
         permitirAvisos = if (avisosPermitidos) null else ({ Avisos.pedirPermissao(contexto) }),
         papelDeParede = { Apps.papelDeParede(contexto) },
         atualizar = vm::acaoAtualizacao,
@@ -431,8 +447,8 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         Conversas.comNomes(conversas.filter { it.pacote in fonteMatilha.pacotes || it.chave in fixadas }, contatos)
     }
     val usoConversas by vm.usoConversas.collectAsStateWithLifecycle()
-    val daMatilha = remember(conversasComNome, fixadas, tipoMatilha, avisos, usoConversas) {
-        Conversas.matilha(conversasComNome, fixadas, tipoMatilha, avisos, usoConversas)
+    val daMatilha = remember(conversasComNome, fixadas, tipoMatilha, avisos, usoConversas, matilhaSoFixadas) {
+        Conversas.matilha(conversasComNome, fixadas, tipoMatilha, avisos, usoConversas, soFixadas = matilhaSoFixadas)
     }
     val acoesComando = AcoesComando(
         ligar = { if (Contatos.ligar(contexto, it)) voltarAoInicio() },
@@ -445,7 +461,12 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     )
 
     // fora do inicio o wallpaper escurece mais (o texto fica legivel sobre qualquer fundo)
-    val escuro by animateFloatAsState(if (tela == Telas.INICIO) 0.45f else 0.88f, label = "escuro")
+    val escuroDoInicio = when (escuroInicio) {
+        "LEVE" -> 0.30f
+        "FORTE" -> 0.62f
+        else -> 0.45f
+    }
+    val escuro by animateFloatAsState(if (tela == Telas.INICIO) escuroDoInicio else 0.88f, label = "escuro")
 
     Box(Modifier.fillMaxSize()) {
         Aurora(
@@ -484,8 +505,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         )
                     },
                     clima = clima,
-                    avisosTotal = avisos.size,
-                    ultimoAviso = ultimoAviso,
+                    mostrarMarca = mostrarMarca,
                     estiloRelogio = estiloRelogio,
                     tempo = previsao?.takeIf { tempoLigado }?.let { p ->
                         { TempoAgora(p, if (fahrenheit) "°F" else "°", aoTocar = { vm.atualizarTempo(forcar = true) }) }
@@ -620,7 +640,10 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         ritmo = ritmo,
                         modoNoite = modoNoite,
                         janelaNoite = janelaNoite,
-                        doisToques = doisToques,
+                        matilhaSoFixadas = matilhaSoFixadas,
+                        mostrarMarca = mostrarMarca,
+                        escuroInicio = escuroInicio,
+                        gestos = gestos,
                         bloqueioLigado = bloqueioLigado,
                         favoritos = favoritosChaves.mapNotNull { porChaveApp[it] },
                         todosApps = apps,
@@ -663,7 +686,10 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         janelaNoite = vm::definirJanelaNoite,
                         adicionarFavorito = vm::adicionarFavorito,
                         tirarFavorito = vm::alternarFavorito,
-                        doisToques = vm::definirDoisToques,
+                        matilhaSoFixadas = vm::definirMatilhaSoFixadas,
+                        mostrarMarca = vm::definirMostrarMarca,
+                        escuroInicio = vm::definirEscuroInicio,
+                        gesto = vm::definirGesto,
                         ligarBloqueio = { Bloqueio.pedirPermissao(contexto) },
                         mostrarApp = { vm.esconder(it, false) },
                         abrirCodigo = { Apps.abrirTela(contexto, Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/TioDanoni/wolf-launcher"))) },
