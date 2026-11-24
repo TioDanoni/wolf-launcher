@@ -70,6 +70,8 @@ class EstadoAjustes(
     val matilhaPeloWhatsapp: Boolean,
     val iconesNosVerbos: Boolean,
     val mostrarPlayer: Boolean,
+    /** O que o player esta vendo agora ("tocando: X (app)", "nenhum app de musica aberto"...). */
+    val detalhePlayer: String,
     val ritmo: Boolean,
     val modoNoite: Boolean,
     val janelaNoite: Pair<Int, Int>,
@@ -158,7 +160,7 @@ private fun PaginaPrincipal(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (
     ) { acoes.iconesNosVerbos(!estado.iconesNosVerbos) }
     LinhaMenu(
         Icons.Outlined.MusicNote, "Player de música",
-        if (estado.avisosPermitidos) "aparece quando algo toca (e até 15 min depois de pausar)"
+        if (estado.avisosPermitidos) "aparece quando algo toca · agora: ${estado.detalhePlayer}"
         else "precisa do acesso às notificações (em Permissões)",
         fim = { ChaveWolf(estado.mostrarPlayer, acoes.mostrarPlayer) },
     ) { if (estado.avisosPermitidos) acoes.mostrarPlayer(!estado.mostrarPlayer) else acoes.permitirAvisos() }

@@ -132,6 +132,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     val usoMudou: StateFlow<Int> = _usoMudou.asStateFlow()
 
     val musica: StateFlow<Musica?> = Tocando.musica
+    val detalheMusica: StateFlow<String> = Tocando.detalhe
 
     private val _iconesNosVerbos = MutableStateFlow(preferencias.iconesNosVerbos)
     val iconesNosVerbos: StateFlow<Boolean> = _iconesNosVerbos.asStateFlow()

@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadata
 import android.media.session.MediaController
+import android.media.session.MediaSession
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.os.Handler
@@ -48,6 +49,10 @@ object Tocando {
     val musica: StateFlow<Musica?> = _musica.asStateFlow()
 
     private var controle: MediaController? = null
+
+    /** O que o launcher esta vendo (aparece nos ajustes, para entender quando o player nao aparece). */
+    private val _detalhe = MutableStateFlow("ainda não procurou")
+    val detalhe: StateFlow<String> = _detalhe.asStateFlow()
     private var gerente: MediaSessionManager? = null
     private val principal = Handler(Looper.getMainLooper())
 
@@ -74,6 +79,21 @@ object Tocando {
             g.addOnActiveSessionsChangedListener(aoMudarSessoes, componente, principal)
             gerente = g
             escolher(g.getActiveSessions(componente))
+        }.onFailure { _detalhe.value = "o Android não liberou as sessões (${it.javaClass.simpleName}); usando a notificação do player" }
+    }
+
+    /**
+     * O segundo caminho: a notificacao de um player traz a sessao dele dentro. Serve
+     * quando o Android nao entrega a sessao pela lista (acontece com alguns apps).
+     */
+    fun daNotificacao(contexto: Context, token: MediaSession.Token) {
+        runCatching {
+            val c = MediaController(contexto, token)
+            val atualTocando = controle?.playbackState?.state == PlaybackState.STATE_PLAYING
+            val novaTocando = c.playbackState?.state == PlaybackState.STATE_PLAYING
+            // so troca se a nova esta tocando, ou se nao ha nenhuma tocando agora
+            if (c.sessionToken != controle?.sessionToken && (novaTocando || !atualTocando)) trocar(c)
+            else publicar()
         }
     }
 
@@ -84,9 +104,19 @@ object Tocando {
 
     /** Fica com a sessao que esta tocando (ou a primeira, se nenhuma toca). */
     private fun escolher(lista: List<MediaController>) {
+        _detalhe.value = if (lista.isEmpty()) "nenhum app de música aberto" else "${lista.size} sessão(ões): " + lista.joinToString { it.packageName }
         val nova = lista.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING } ?: lista.firstOrNull()
+        // lista vazia mas com sessao vinda da notificacao: fica com ela
+        if (nova == null && controle != null) {
+            publicar()
+            return
+        }
+        trocar(nova)
+    }
+
+    private fun trocar(nova: MediaController?) {
         if (nova?.sessionToken != controle?.sessionToken) {
-            controle?.unregisterCallback(aoMudar)
+            runCatching { controle?.unregisterCallback(aoMudar) }
             controle = nova
             nova?.registerCallback(aoMudar, principal)
         }
@@ -96,11 +126,14 @@ object Tocando {
     private fun publicar() {
         val c = controle
         val m = c?.metadata
-        val titulo = m?.getString(MediaMetadata.METADATA_KEY_TITLE)?.takeIf { it.isNotBlank() }
+        val titulo = (m?.getString(MediaMetadata.METADATA_KEY_TITLE)?.takeIf { it.isNotBlank() }
+            ?: m?.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE)?.takeIf { it.isNotBlank() })
         if (c == null || titulo == null) {
+            if (c != null) _detalhe.value = "${c.packageName} sem nome de música (ainda)"
             _musica.value = null
             return
         }
+        _detalhe.value = "${if (c.playbackState?.state == PlaybackState.STATE_PLAYING) "tocando" else "pausado"}: $titulo (${c.packageName})"
         val capa: Bitmap? = m.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART) ?: m.getBitmap(MediaMetadata.METADATA_KEY_ART)
         val atual = _musica.value
         val estado = c.playbackState

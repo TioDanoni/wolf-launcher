@@ -205,6 +205,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     val titulos by vm.titulos.collectAsStateWithLifecycle()
     val widgets by vm.widgets.collectAsStateWithLifecycle()
     val mostrarPlayer by vm.mostrarPlayer.collectAsStateWithLifecycle()
+    val detalheMusica by vm.detalheMusica.collectAsStateWithLifecycle()
     // o player aparece tocando, e ate 15 min depois de pausar (a hora muda a cada minuto e reavalia)
     val musicaNoPlayer = remember(musica, mostrarPlayer, hora, agora().minute) {
         musica?.takeIf { m ->
@@ -517,6 +518,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         matilhaPeloWhatsapp = conversas.isNotEmpty(),
                         iconesNosVerbos = iconesNosVerbos,
                         mostrarPlayer = mostrarPlayer,
+                        detalhePlayer = detalheMusica,
                         ritmo = ritmo,
                         modoNoite = modoNoite,
                         janelaNoite = janelaNoite,

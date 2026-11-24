@@ -157,6 +157,8 @@ class Ouvinte : NotificationListenerService() {
     override fun onListenerConnected() {
         Avisos.ouvinte = this
         atualizar()
+        Tocando.iniciar(applicationContext)
+        runCatching { activeNotifications }.getOrNull()?.forEach(::olharPlayer)
     }
 
     override fun onListenerDisconnected() {
@@ -164,7 +166,22 @@ class Ouvinte : NotificationListenerService() {
         Avisos.limpar()
     }
 
-    override fun onNotificationPosted(sbn: StatusBarNotification?) = atualizar()
+    override fun onNotificationPosted(sbn: StatusBarNotification?) {
+        atualizar()
+        sbn?.let(::olharPlayer)
+    }
+
+    /** A notificacao de um player traz a sessao de midia: o player da tela inicial usa. */
+    private fun olharPlayer(sbn: StatusBarNotification) {
+        val extras = sbn.notification.extras
+        val token = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            extras.getParcelable(Notification.EXTRA_MEDIA_SESSION, android.media.session.MediaSession.Token::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            extras.getParcelable(Notification.EXTRA_MEDIA_SESSION)
+        } ?: return
+        Tocando.daNotificacao(applicationContext, token)
+    }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) = atualizar()
 
