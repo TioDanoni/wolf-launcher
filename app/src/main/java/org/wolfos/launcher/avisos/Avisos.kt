@@ -26,6 +26,8 @@ data class Aviso(
     val texto: String,
     val quando: Long,
     val abrir: PendingIntent?,
+    /** O atalho de conversa da notificacao (Android 10+): liga a notificacao a conversa certa. */
+    val atalho: String? = null,
 )
 
 /**
@@ -115,6 +117,7 @@ object Avisos {
             texto = texto,
             quando = sbn.notification.`when`.takeIf { it > 0 } ?: sbn.postTime,
             abrir = sbn.notification.contentIntent,
+            atalho = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) sbn.notification.shortcutId else null,
         )
     }
 }

@@ -5,6 +5,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.LauncherApps
+import android.content.pm.ShortcutInfo
+import android.os.UserHandle
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -26,6 +29,10 @@ import org.wolfos.launcher.dados.AppInfo
 import org.wolfos.launcher.dados.Apps
 import org.wolfos.launcher.dados.Contato
 import org.wolfos.launcher.dados.Contatos
+import org.wolfos.launcher.dados.Conversa
+import org.wolfos.launcher.dados.Conversas
+import org.wolfos.launcher.dados.Fixadas
+import org.wolfos.launcher.dados.TipoMatilha
 import org.wolfos.launcher.dados.EscolhasVerbo
 import org.wolfos.launcher.dados.Icones
 import org.wolfos.launcher.dados.Matilha
@@ -105,6 +112,48 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     private val _avisosPermitidos = MutableStateFlow(Avisos.permitido(app))
     val avisosPermitidos: StateFlow<Boolean> = _avisosPermitidos.asStateFlow()
 
+    // ---- a Matilha pelo WhatsApp: as conversas recentes e as fixadas
+    private val fixadasArq = Fixadas(app)
+
+    private val _conversas = MutableStateFlow<List<Conversa>>(emptyList())
+    val conversas: StateFlow<List<Conversa>> = _conversas.asStateFlow()
+
+    private val _fixadas = MutableStateFlow(fixadasArq.ler())
+    val fixadas: StateFlow<List<String>> = _fixadas.asStateFlow()
+
+    private val _tipoMatilha = MutableStateFlow(fixadasArq.tipo)
+    val tipoMatilha: StateFlow<TipoMatilha> = _tipoMatilha.asStateFlow()
+
+    /** O WhatsApp mexeu nos atalhos (conversa nova, mensagem): a Matilha acompanha. */
+    private val atalhos = object : LauncherApps.Callback() {
+        override fun onShortcutsChanged(packageName: String, shortcuts: MutableList<ShortcutInfo>, user: UserHandle) {
+            if (packageName in Conversas.PACOTES) carregarConversas()
+        }
+        override fun onPackageRemoved(packageName: String?, user: UserHandle?) = Unit
+        override fun onPackageAdded(packageName: String?, user: UserHandle?) = Unit
+        override fun onPackageChanged(packageName: String?, user: UserHandle?) = Unit
+        override fun onPackagesAvailable(packageNames: Array<out String>?, user: UserHandle?, replacing: Boolean) = Unit
+        override fun onPackagesUnavailable(packageNames: Array<out String>?, user: UserHandle?, replacing: Boolean) = Unit
+    }
+
+    fun carregarConversas() {
+        viewModelScope.launch {
+            _conversas.value = withContext(Dispatchers.IO) { Conversas.carregar(getApplication()) }
+        }
+    }
+
+    fun alternarFixada(c: Conversa) {
+        val atual = _fixadas.value
+        val nova = if (c.chave in atual) atual - c.chave else atual + c.chave
+        fixadasArq.gravar(nova)
+        _fixadas.value = nova
+    }
+
+    fun definirTipoMatilha(tipo: TipoMatilha) {
+        fixadasArq.tipo = tipo
+        _tipoMatilha.value = tipo
+    }
+
     private val matilhaArq = Matilha(app)
     private val _matilha = MutableStateFlow(matilhaArq.ler())
 
@@ -134,6 +183,8 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         ContextCompat.registerReceiver(app, pacotes, filtro, ContextCompat.RECEIVER_NOT_EXPORTED)
         recarregar()
         carregarContatos()
+        runCatching { app.getSystemService(LauncherApps::class.java)?.registerCallback(atalhos) }
+        carregarConversas()
         TrabalhoAtualizacao.agendar(app)
     }
 
@@ -213,6 +264,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         if (_avisosPermitidos.value) Tocando.iniciar(getApplication())
         // a agenda pode ter mudado (ou a permissao chegado) enquanto estava fora
         carregarContatos()
+        carregarConversas()
         carregarDia()
         viewModelScope.launch {
             Atualizador.aoVoltar(getApplication())
@@ -250,6 +302,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     override fun onCleared() {
         getApplication<Application>().unregisterReceiver(pacotes)
+        runCatching { getApplication<Application>().getSystemService(LauncherApps::class.java)?.unregisterCallback(atalhos) }
     }
 
     private companion object {

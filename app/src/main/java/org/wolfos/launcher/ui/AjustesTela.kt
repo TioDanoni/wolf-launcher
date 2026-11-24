@@ -1,5 +1,6 @@
 package org.wolfos.launcher.ui
 
+import org.wolfos.launcher.dados.TipoMatilha
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -43,6 +44,9 @@ fun AjustesTela(
     aoInformacoesDoLauncher: () -> Unit,
     mostrarMatilha: Boolean,
     aoMostrarMatilha: (Boolean) -> Unit,
+    tipoMatilha: TipoMatilha,
+    aoTipoMatilha: (TipoMatilha) -> Unit,
+    matilhaPeloWhatsapp: Boolean,
     iconesNosVerbos: Boolean,
     aoIconesNosVerbos: (Boolean) -> Unit,
     ritmo: Boolean,
@@ -59,7 +63,14 @@ fun AjustesTela(
 
         Grupo("Tela inicial")
         Chave("Ícones ao lado dos verbos", "os apps que você mais usa de cada verbo, para abrir direto", iconesNosVerbos, aoIconesNosVerbos)
-        Chave("Matilha", "as pessoas no polegar (toque no + para escolher)", mostrarMatilha, aoMostrarMatilha)
+        Chave(
+            "Matilha",
+            if (matilhaPeloWhatsapp) "as conversas recentes do WhatsApp; segure uma para fixar, o + mostra todas"
+            else "as pessoas da agenda (com o WhatsApp e o launcher como tela inicial, viram as conversas)",
+            mostrarMatilha,
+            aoMostrarMatilha,
+        )
+        if (mostrarMatilha && matilhaPeloWhatsapp) TiposMatilha(tipoMatilha, aoTipoMatilha)
         if (avisosPermitidos) {
             Linha("Prévias das notificações", "ligadas: os verbos e a Matilha mostram quem está esperando, e o Ouvir, a música", aoTocar = aoPermitirAvisos)
         } else {
@@ -156,5 +167,17 @@ private fun JanelasNoite(atual: Pair<Int, Int>, aoEscolher: (Int, Int) -> Unit) 
         for ((inicio, fim) in JANELAS) {
             Pilula("${hhmm(inicio)} – ${hhmm(fim)}", destaque = atual == inicio to fim) { aoEscolher(inicio, fim) }
         }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TiposMatilha(atual: TipoMatilha, aoEscolher: (TipoMatilha) -> Unit) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+    ) {
+        for (t in TipoMatilha.entries) Pilula(t.titulo, destaque = t == atual) { aoEscolher(t) }
     }
 }

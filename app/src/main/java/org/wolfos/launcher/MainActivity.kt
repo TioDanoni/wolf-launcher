@@ -43,6 +43,7 @@ import org.wolfos.launcher.dados.Agenda
 import org.wolfos.launcher.dados.AppInfo
 import org.wolfos.launcher.dados.Apps
 import org.wolfos.launcher.dados.Contatos
+import org.wolfos.launcher.dados.Conversas
 import org.wolfos.launcher.dados.Evento
 import org.wolfos.launcher.dados.Matilha
 import org.wolfos.launcher.dados.Padrao
@@ -64,6 +65,8 @@ import org.wolfos.launcher.ui.AcoesPessoa
 import org.wolfos.launcher.ui.FileiraMatilha
 import org.wolfos.launcher.ui.Previa
 import org.wolfos.launcher.ui.AcoesComando
+import org.wolfos.launcher.ui.AcoesConversa
+import org.wolfos.launcher.ui.FileiraConversas
 import org.wolfos.launcher.ui.AcoesInicio
 import org.wolfos.launcher.ui.AjustesTela
 import org.wolfos.launcher.ui.Aurora
@@ -127,6 +130,9 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     val avisosPermitidos by vm.avisosPermitidos.collectAsStateWithLifecycle()
     val matilhaIds by vm.matilha.collectAsStateWithLifecycle()
     val mostrarMatilha by vm.mostrarMatilha.collectAsStateWithLifecycle()
+    val conversas by vm.conversas.collectAsStateWithLifecycle()
+    val fixadas by vm.fixadas.collectAsStateWithLifecycle()
+    val tipoMatilha by vm.tipoMatilha.collectAsStateWithLifecycle()
     val ritmo by vm.ritmo.collectAsStateWithLifecycle()
     val modoNoite by vm.modoNoite.collectAsStateWithLifecycle()
     val janelaNoite by vm.janelaNoite.collectAsStateWithLifecycle()
@@ -270,6 +276,19 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
             else pedidoContatos.launch(Manifest.permission.READ_CONTACTS)
         },
     )
+    val acoesConversa = AcoesConversa(
+        abrir = { c ->
+            // se o atalho falhar (conversa apagada), abre o WhatsApp
+            if (Conversas.abrir(contexto, c) || apps.firstOrNull { it.pacote == c.pacote }?.let { Apps.abrir(contexto, it) } == true) {
+                voltarAoInicio()
+            }
+        },
+        alternarFixada = vm::alternarFixada,
+        abrirAviso = acoesAviso.abrir,
+    )
+    val daMatilha = remember(conversas, fixadas, tipoMatilha, avisos) {
+        Conversas.matilha(conversas, fixadas, tipoMatilha, avisos)
+    }
     val acoesComando = AcoesComando(
         ligar = { if (Contatos.ligar(contexto, it)) voltarAoInicio() },
         mensagem = { if (Contatos.mensagem(contexto, it)) voltarAoInicio() },
@@ -302,7 +321,13 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                     apps, verbos, atualizacao, ehPadrao, previas, faixaAgora, noite,
                     iconesDosVerbos, musica, acoesMusica, acoesInicio,
                 ) {
-                    if (mostrarMatilha) FileiraMatilha(pessoas, avisos, temContatos, acoesPessoa)
+                    when {
+                        !mostrarMatilha -> Unit
+                        // com o WhatsApp: as conversas recentes (pessoas e grupos) e as fixadas
+                        conversas.isNotEmpty() -> FileiraConversas(daMatilha, conversas, fixadas, avisos, acoesConversa)
+                        // sem ele: as pessoas da agenda
+                        else -> FileiraMatilha(pessoas, avisos, temContatos, acoesPessoa)
+                    }
                 }
                 atual == Telas.DIA -> {
                     val porChave = remember(apps) { apps.associateBy { it.chave } }
@@ -355,6 +380,9 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                     },
                     mostrarMatilha = mostrarMatilha,
                     aoMostrarMatilha = vm::definirMostrarMatilha,
+                    tipoMatilha = tipoMatilha,
+                    aoTipoMatilha = vm::definirTipoMatilha,
+                    matilhaPeloWhatsapp = conversas.isNotEmpty(),
                     iconesNosVerbos = iconesNosVerbos,
                     aoIconesNosVerbos = vm::definirIconesNosVerbos,
                     ritmo = ritmo,

@@ -1,5 +1,17 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.window.Dialog
+import org.wolfos.launcher.dados.Conversa
+import org.wolfos.launcher.dados.Conversas
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -162,4 +174,169 @@ private fun Modifier.anelPulsando(cor: androidx.compose.ui.graphics.Color): Modi
         label = "alfa",
     )
     return this.border(2.5.dp, cor.copy(alpha = alfa), CircleShape)
+}
+
+// ---------------------------------------------------------------- Matilha pelo WhatsApp
+
+/** O que da para fazer com uma conversa da Matilha. */
+class AcoesConversa(
+    val abrir: (Conversa) -> Unit,
+    val alternarFixada: (Conversa) -> Unit,
+    val abrirAviso: (Aviso) -> Unit,
+)
+
+/**
+ * A Matilha pelas conversas do WhatsApp: as fixadas primeiro, depois quem esta
+ * esperando e as recentes. Tocar abre direto na conversa; segurar fixa ou solta.
+ */
+@Composable
+fun FileiraConversas(
+    conversas: List<Conversa>,
+    todas: List<Conversa>,
+    fixadas: List<String>,
+    avisos: List<Aviso>,
+    acoes: AcoesConversa,
+    modifier: Modifier = Modifier,
+) {
+    var escolhendo by remember { mutableStateOf(false) }
+    Column(modifier) {
+        Rotulo("Matilha", Modifier.padding(start = 10.dp, bottom = 8.dp))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.Top,
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+        ) {
+            for (c in conversas) MembroConversa(c, c.chave in fixadas, Conversas.esperando(c, avisos), acoes)
+            Adicionar(if (conversas.isEmpty()) "fixar" else null) { escolhendo = true }
+        }
+    }
+    if (escolhendo) EscolherConversas(todas, fixadas, acoes.alternarFixada) { escolhendo = false }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun MembroConversa(c: Conversa, fixada: Boolean, esperando: List<Aviso>, acoes: AcoesConversa) {
+    val cor = MaterialTheme.colorScheme.primary
+    var menu by remember { mutableStateOf(false) }
+    Box {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .width(64.dp)
+                .clip(CircleShape)
+                .combinedClickable(onClick = { acoes.abrir(c) }, onLongClick = { menu = true }),
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(56.dp)
+                    .then(if (esperando.isNotEmpty()) Modifier.anelPulsando(cor) else Modifier)
+                    .padding(5.dp),
+            ) {
+                FotoConversa(c, 46.dp)
+                if (fixada) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.align(Alignment.BottomEnd).size(16.dp).clip(CircleShape).background(cor),
+                    ) { Text("•", color = Fundo, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+                }
+                if (esperando.size > 1) {
+                    Selo(esperando.size, Modifier.align(Alignment.TopEnd).size(18.dp))
+                }
+            }
+            Text(
+                c.nome.substringBefore(' ').ifEmpty { c.nome },
+                color = if (esperando.isNotEmpty()) Texto else Texto.copy(alpha = 0.8f),
+                fontSize = 11.5.sp,
+                fontWeight = if (esperando.isNotEmpty()) FontWeight.SemiBold else FontWeight.Normal,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                style = TextStyle(shadow = SombraTexto),
+                modifier = Modifier.padding(top = 3.dp),
+            )
+        }
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            Text(
+                c.nome + if (c.grupo) "  ·  grupo" else "",
+                color = TextoFraco,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+            )
+            esperando.firstOrNull()?.let { a ->
+                DropdownMenuItem(
+                    text = { Text("“${a.texto}”", color = cor, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                    onClick = { menu = false; acoes.abrirAviso(a) },
+                )
+            }
+            DropdownMenuItem(text = { Text("Abrir conversa") }, onClick = { menu = false; acoes.abrir(c) })
+            DropdownMenuItem(
+                text = { Text(if (fixada) "Soltar da Matilha" else "Fixar na Matilha") },
+                onClick = { menu = false; acoes.alternarFixada(c) },
+            )
+        }
+    }
+}
+
+/** A foto que o WhatsApp entrega para a conversa (ou a inicial colorida). */
+@Composable
+fun FotoConversa(c: Conversa, tamanho: androidx.compose.ui.unit.Dp) {
+    val contexto = LocalContext.current
+    val foto by produceState(Conversas.iconeDaMemoria(c), c.chave) {
+        if (value == null) value = Conversas.icone(contexto, c)
+    }
+    foto?.let {
+        Image(it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(tamanho).clip(CircleShape))
+    } ?: Avatar(c.nome, tamanho)
+}
+
+/** A lista de todas as conversas recentes, para fixar ou soltar. */
+@Composable
+private fun EscolherConversas(todas: List<Conversa>, fixadas: List<String>, aoAlternar: (Conversa) -> Unit, aoFechar: () -> Unit) {
+    val cor = MaterialTheme.colorScheme.primary
+    Dialog(onDismissRequest = aoFechar) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(max = 560.dp)
+                .clip(RoundedCornerShape(28.dp))
+                .background(Superficie)
+                .padding(vertical = 18.dp),
+        ) {
+            Text("Fixar na Matilha", color = Texto, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 22.dp))
+            Text(
+                "As conversas recentes do WhatsApp. As fixadas ficam sempre na fileira, primeiro.",
+                color = TextoFraco, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 22.dp, vertical = 6.dp),
+            )
+            if (todas.isEmpty()) {
+                Text(
+                    "Nenhuma conversa ainda. Converse no WhatsApp e volte aqui.",
+                    color = TextoFraco, fontSize = 14.sp, modifier = Modifier.padding(22.dp),
+                )
+            }
+            LazyColumn(Modifier.weight(1f, fill = false)) {
+                items(todas, key = { it.chave }) { c ->
+                    val fixada = c.chave in fixadas
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().clickable { aoAlternar(c) }.padding(horizontal = 22.dp, vertical = 8.dp),
+                    ) {
+                        FotoConversa(c, 40.dp)
+                        Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                            Text(c.nome, color = Texto, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(if (c.grupo) "grupo" else "pessoa", color = TextoFraco, fontSize = 12.sp)
+                        }
+                        Text(if (fixada) "Fixada" else "Fixar", color = if (fixada) cor else TextoFraco, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+            Text(
+                "Pronto",
+                color = cor,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.End).padding(end = 22.dp, top = 8.dp).clip(CircleShape).clickable(onClick = aoFechar)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            )
+        }
+    }
 }
