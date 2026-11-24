@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- lua -->
+    <path
+        android:fillColor="#F5A432"
+        android:pathData="M54,26a28,28 0,1 1,0 56a28,28 0,1 1,0 -56z" />
+    <!-- lobo uivando (silhueta) -->
+    <path
+        android:fillColor="#0D0F16"
+        android:pathData="M40,80 L44,62 L40,52 L46,46 L48,36 L52,44 L58,40 L56,48 L62,54 L60,60 L66,68 L68,80 Z" />
+</vector>
