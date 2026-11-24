@@ -206,6 +206,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     val widgets by vm.widgets.collectAsStateWithLifecycle()
     val mostrarPlayer by vm.mostrarPlayer.collectAsStateWithLifecycle()
     val detalheMusica by vm.detalheMusica.collectAsStateWithLifecycle()
+    val clima by vm.clima.collectAsStateWithLifecycle()
     // o player aparece tocando, e ate 15 min depois de pausar (a hora muda a cada minuto e reavalia)
     val musicaNoPlayer = remember(musica, mostrarPlayer, hora, agora().minute) {
         musica?.takeIf { m ->
@@ -442,6 +443,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                 atual == Telas.INICIO -> Inicio(
                     apps, verbos, atualizacao, ehPadrao, previas, faixaAgora, noite,
                     iconesDosVerbos, titulos, musica, acoesMusica, acoesInicio,
+                    clima = clima,
                     player = musicaNoPlayer?.let { m ->
                         {
                             Player(

@@ -1,5 +1,7 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.material.icons.outlined.WbCloudy
+import org.wolfos.launcher.avisos.Clima
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Widgets
@@ -171,6 +173,8 @@ fun Inicio(
     musica: Musica?,
     acoesMusica: AcoesMusica,
     acoes: AcoesInicio,
+    /** O tempo (vem da notificacao do app do clima), ao lado da data. */
+    clima: Clima? = null,
     /** O player de musica (ou nada); com ele, o Ouvir nao repete os controles. */
     player: (@Composable () -> Unit)? = null,
     /** A fileira da Matilha (ou nada), logo acima da barra de comando. */
@@ -201,7 +205,7 @@ fun Inicio(
         ) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 18.dp)) {
                 Marca(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp))
-                Relogio(Modifier.padding(start = 6.dp, top = 22.dp))
+                Relogio(clima, Modifier.padding(start = 6.dp, top = 22.dp))
                 // a faixa do agora: primeiro o que falta para o launcher funcionar direito
                 Column(Modifier.padding(top = 18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (!ehPadrao) FaixaLimpa("⌂", "Usar o WolfLauncher como tela inicial", "Definir", acoes.definirPadrao)
@@ -581,7 +585,7 @@ private fun Equalizador(cor: Color, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun Relogio(modifier: Modifier = Modifier) {
+private fun Relogio(clima: Clima?, modifier: Modifier = Modifier) {
     val momento = agora()
     Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
         Text(
@@ -600,6 +604,16 @@ private fun Relogio(modifier: Modifier = Modifier) {
                 style = TextStyle(shadow = SombraTexto),
             )
             Text(momento.format(DATA), color = Texto.copy(alpha = 0.7f), fontSize = 15.sp, style = TextStyle(shadow = SombraTexto))
+            if (clima != null) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+                    Icon(Icons.Outlined.WbCloudy, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(15.dp))
+                    Text(
+                        " ${clima.graus}°" + if (clima.descricao.isNotBlank()) " · ${clima.descricao}" else "",
+                        color = Texto.copy(alpha = 0.7f), fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        style = TextStyle(shadow = SombraTexto),
+                    )
+                }
+            }
         }
     }
 }

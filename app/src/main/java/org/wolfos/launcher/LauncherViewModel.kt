@@ -133,6 +133,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     val musica: StateFlow<Musica?> = Tocando.musica
     val detalheMusica: StateFlow<String> = Tocando.detalhe
+    val clima: StateFlow<org.wolfos.launcher.avisos.Clima?> = Avisos.clima
 
     private val _iconesNosVerbos = MutableStateFlow(preferencias.iconesNosVerbos)
     val iconesNosVerbos: StateFlow<Boolean> = _iconesNosVerbos.asStateFlow()
