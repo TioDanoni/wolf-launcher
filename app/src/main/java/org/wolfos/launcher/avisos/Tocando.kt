@@ -24,7 +24,20 @@ data class Musica(
     val pacote: String,
     val tocando: Boolean,
     val capa: ImageBitmap?,
-)
+    /** Duracao em ms (0 quando o app nao informa, como em radio ao vivo). */
+    val duracao: Long = 0,
+    /** Posicao em ms no momento [atualizadoEm] (relogio SystemClock.elapsedRealtime). */
+    val posicao: Long = 0,
+    val atualizadoEm: Long = 0,
+    val velocidade: Float = 1f,
+) {
+    /** A posicao agora, andando sozinha enquanto toca. */
+    fun posicaoAgora(): Long {
+        if (!tocando || atualizadoEm == 0L) return posicao
+        val andou = ((android.os.SystemClock.elapsedRealtime() - atualizadoEm) * velocidade).toLong()
+        return (posicao + andou).let { if (duracao > 0) it.coerceAtMost(duracao) else it }
+    }
+}
 
 /**
  * O que esta tocando, lido das sessoes de midia do Android. Usa a mesma permissao das
@@ -90,6 +103,7 @@ object Tocando {
         }
         val capa: Bitmap? = m.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART) ?: m.getBitmap(MediaMetadata.METADATA_KEY_ART)
         val atual = _musica.value
+        val estado = c.playbackState
         _musica.value = Musica(
             titulo = titulo,
             artista = m.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: m.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST).orEmpty(),
@@ -97,7 +111,11 @@ object Tocando {
             tocando = c.playbackState?.state == PlaybackState.STATE_PLAYING,
             // a capa so e convertida de novo quando a musica muda
             capa = if (atual?.titulo == titulo && atual.pacote == c.packageName && atual.capa != null) atual.capa
-            else capa?.let { runCatching { Bitmap.createScaledBitmap(it, 96, 96, true).asImageBitmap() }.getOrNull() },
+            else capa?.let { runCatching { Bitmap.createScaledBitmap(it, 160, 160, true).asImageBitmap() }.getOrNull() },
+            duracao = m.getLong(MediaMetadata.METADATA_KEY_DURATION).coerceAtLeast(0),
+            posicao = estado?.position?.coerceAtLeast(0) ?: 0,
+            atualizadoEm = estado?.lastPositionUpdateTime ?: 0,
+            velocidade = estado?.playbackSpeed?.takeIf { it > 0f } ?: 1f,
         )
     }
 
@@ -112,5 +130,10 @@ object Tocando {
 
     fun anterior() {
         controle?.transportControls?.skipToPrevious()
+    }
+
+    /** Pula para um ponto da musica (em ms). */
+    fun irPara(ms: Long) {
+        controle?.transportControls?.seekTo(ms)
     }
 }

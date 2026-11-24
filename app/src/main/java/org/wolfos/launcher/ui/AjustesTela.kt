@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
@@ -68,6 +69,7 @@ class EstadoAjustes(
     val tipoMatilha: TipoMatilha,
     val matilhaPeloWhatsapp: Boolean,
     val iconesNosVerbos: Boolean,
+    val mostrarPlayer: Boolean,
     val ritmo: Boolean,
     val modoNoite: Boolean,
     val janelaNoite: Pair<Int, Int>,
@@ -95,6 +97,7 @@ class AcoesAjustes(
     val mostrarMatilha: (Boolean) -> Unit,
     val tipoMatilha: (TipoMatilha) -> Unit,
     val iconesNosVerbos: (Boolean) -> Unit,
+    val mostrarPlayer: (Boolean) -> Unit,
     val ritmo: (Boolean) -> Unit,
     val modoNoite: (Boolean) -> Unit,
     val janelaNoite: (Int, Int) -> Unit,
@@ -153,6 +156,12 @@ private fun PaginaPrincipal(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (
         Icons.Outlined.GridView, "Ícones ao lado dos verbos", "os apps que você mais usa de cada verbo",
         fim = { ChaveWolf(estado.iconesNosVerbos, acoes.iconesNosVerbos) },
     ) { acoes.iconesNosVerbos(!estado.iconesNosVerbos) }
+    LinhaMenu(
+        Icons.Outlined.MusicNote, "Player de música",
+        if (estado.avisosPermitidos) "aparece quando algo toca (e até 15 min depois de pausar)"
+        else "precisa do acesso às notificações (em Permissões)",
+        fim = { ChaveWolf(estado.mostrarPlayer, acoes.mostrarPlayer) },
+    ) { if (estado.avisosPermitidos) acoes.mostrarPlayer(!estado.mostrarPlayer) else acoes.permitirAvisos() }
     LinhaMenu(
         Icons.Outlined.Groups, "Matilha",
         if (estado.matilhaPeloWhatsapp) "as conversas recentes do WhatsApp; segure uma para fixar"

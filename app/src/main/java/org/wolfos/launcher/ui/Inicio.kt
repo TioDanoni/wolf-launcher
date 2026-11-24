@@ -168,6 +168,8 @@ fun Inicio(
     musica: Musica?,
     acoesMusica: AcoesMusica,
     acoes: AcoesInicio,
+    /** O player de musica (ou nada); com ele, o Ouvir nao repete os controles. */
+    player: (@Composable () -> Unit)? = null,
     /** A fileira da Matilha (ou nada), logo acima da barra de comando. */
     matilha: @Composable () -> Unit,
 ) {
@@ -217,6 +219,7 @@ fun Inicio(
                                 previa = previas[v],
                                 icones = iconesDosVerbos[v].orEmpty(),
                                 musica = musica.takeIf { v == Verbo.OUVIR },
+                                controles = player == null,
                                 indice = i,
                                 ultima = i == lista.lastIndex,
                                 acoesMusica = acoesMusica,
@@ -230,6 +233,10 @@ fun Inicio(
                     }
                 }
                 Spacer(Modifier.height(18.dp))
+                if (player != null) {
+                    player()
+                    Spacer(Modifier.height(16.dp))
+                }
                 matilha()
                 Spacer(Modifier.height(14.dp))
                 BarraBusca(noite) { acoes.abrirComando("") }
@@ -349,6 +356,7 @@ private fun LinhaVerbo(
     previa: Previa?,
     icones: List<AppInfo>,
     musica: Musica?,
+    controles: Boolean,
     indice: Int,
     ultima: Boolean,
     acoesMusica: AcoesMusica,
@@ -419,9 +427,9 @@ private fun LinhaVerbo(
                     style = TextStyle(shadow = SombraTexto),
                 )
             }
-            if (musica != null) {
+            if (musica != null && controles) {
                 ControlesMusica(musica, acoesMusica)
-            } else if (icones.isNotEmpty()) {
+            } else if (icones.isNotEmpty() && (musica == null || !controles)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     for (app in icones) {
                         Box(

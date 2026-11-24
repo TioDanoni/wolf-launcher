@@ -58,7 +58,9 @@ import org.wolfos.launcher.dados.agrupar
 import org.wolfos.launcher.dados.verboDe
 import org.wolfos.launcher.ui.AcoesAjustes
 import org.wolfos.launcher.ui.AcoesApp
+import org.wolfos.launcher.ui.AcoesPlayer
 import org.wolfos.launcher.ui.AcoesVerbo
+import org.wolfos.launcher.ui.Player
 import org.wolfos.launcher.ui.AcoesWidgets
 import org.wolfos.launcher.ui.WidgetsTela
 import org.wolfos.launcher.ui.EditarVerbo
@@ -202,6 +204,13 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     val verbosEscondidos by vm.verbosEscondidos.collectAsStateWithLifecycle()
     val titulos by vm.titulos.collectAsStateWithLifecycle()
     val widgets by vm.widgets.collectAsStateWithLifecycle()
+    val mostrarPlayer by vm.mostrarPlayer.collectAsStateWithLifecycle()
+    // o player aparece tocando, e ate 15 min depois de pausar (a hora muda a cada minuto e reavalia)
+    val musicaNoPlayer = remember(musica, mostrarPlayer, hora, agora().minute) {
+        musica?.takeIf { m ->
+            mostrarPlayer && (m.tocando || android.os.SystemClock.elapsedRealtime() - m.atualizadoEm < 15 * 60_000L)
+        }
+    }
     val doisToques by vm.doisToques.collectAsStateWithLifecycle()
     val bloqueioLigado by vm.bloqueioLigado.collectAsStateWithLifecycle()
     // o verbo com o menu de editar aberto (vale para a tela inicial e para os ajustes)
@@ -429,6 +438,20 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                 atual == Telas.INICIO -> Inicio(
                     apps, verbos, atualizacao, ehPadrao, previas, faixaAgora, noite,
                     iconesDosVerbos, titulos, musica, acoesMusica, acoesInicio,
+                    player = musicaNoPlayer?.let { m ->
+                        {
+                            Player(
+                                m,
+                                AcoesPlayer(
+                                    tocarOuPausar = Tocando::tocarOuPausar,
+                                    anterior = Tocando::anterior,
+                                    proxima = Tocando::proxima,
+                                    irPara = Tocando::irPara,
+                                    abrir = acoesMusica.abrir,
+                                ),
+                            )
+                        }
+                    },
                 ) {
                     when {
                         !mostrarMatilha -> Unit
@@ -493,6 +516,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         tipoMatilha = tipoMatilha,
                         matilhaPeloWhatsapp = conversas.isNotEmpty(),
                         iconesNosVerbos = iconesNosVerbos,
+                        mostrarPlayer = mostrarPlayer,
                         ritmo = ritmo,
                         modoNoite = modoNoite,
                         janelaNoite = janelaNoite,
@@ -522,6 +546,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         mostrarMatilha = vm::definirMostrarMatilha,
                         tipoMatilha = vm::definirTipoMatilha,
                         iconesNosVerbos = vm::definirIconesNosVerbos,
+                        mostrarPlayer = vm::definirMostrarPlayer,
                         ritmo = vm::definirRitmo,
                         modoNoite = vm::definirModoNoite,
                         janelaNoite = vm::definirJanelaNoite,

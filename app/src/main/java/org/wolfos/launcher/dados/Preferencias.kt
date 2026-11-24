@@ -21,6 +21,11 @@ class Preferencias(contexto: Context) {
         get() = prefs.getBoolean("dois_toques", true)
         set(v) = prefs.edit().putBoolean("dois_toques", v).apply()
 
+    /** O player de musica na tela inicial (quando algo toca). */
+    var mostrarPlayer: Boolean
+        get() = prefs.getBoolean("mostrar_player", true)
+        set(v) = prefs.edit().putBoolean("mostrar_player", v).apply()
+
     /** A fileira da Matilha na tela inicial. */
     var mostrarMatilha: Boolean
         get() = prefs.getBoolean("mostrar_matilha", true)

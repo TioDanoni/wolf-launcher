@@ -171,6 +171,14 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         _doisToques.value = valor
     }
 
+    private val _mostrarPlayer = MutableStateFlow(preferencias.mostrarPlayer)
+    val mostrarPlayer: StateFlow<Boolean> = _mostrarPlayer.asStateFlow()
+
+    fun definirMostrarPlayer(valor: Boolean) {
+        preferencias.mostrarPlayer = valor
+        _mostrarPlayer.value = valor
+    }
+
     private val _mostrarMatilha = MutableStateFlow(preferencias.mostrarMatilha)
     val mostrarMatilha: StateFlow<Boolean> = _mostrarMatilha.asStateFlow()
 
