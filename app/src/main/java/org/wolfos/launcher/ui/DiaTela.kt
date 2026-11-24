@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -27,6 +28,8 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.PhoneAndroid
+import androidx.compose.material.icons.outlined.PhoneMissed
+import androidx.compose.material.icons.outlined.TrackChanges
 import androidx.compose.material.icons.outlined.WbTwilight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -78,6 +81,13 @@ class EstadoDia(
     val noiteInicio: Int,
     /** Quantas notificacoes estao esperando. */
     val avisos: Int,
+    val rotina: org.wolfos.launcher.dados.Rotina? = null,
+    /** A rotina foi ligada a mao (e nao pelo horario). */
+    val rotinaManual: Boolean = false,
+    /** Quando o Modo Caca acaba (0 = desligado). */
+    val cacaAte: Long = 0L,
+    val perdidas: List<org.wolfos.launcher.dados.Perdida> = emptyList(),
+    val temChamadas: Boolean = true,
 )
 
 /** O que a tela do dia pede para a tela principal fazer. */
@@ -91,6 +101,11 @@ class AcoesDia(
     val abrirInsights: () -> Unit,
     val abrirPainel: () -> Unit,
     val voltar: () -> Unit,
+    val ligarRotina: (org.wolfos.launcher.dados.Rotina?) -> Unit = {},
+    val comecarCaca: (Int) -> Unit = {},
+    val pararCaca: () -> Unit = {},
+    val retornar: (org.wolfos.launcher.dados.Perdida) -> Unit = {},
+    val permitirChamadas: () -> Unit = {},
 )
 
 /**
@@ -316,8 +331,74 @@ private fun Agora(estado: EstadoDia, acoes: AcoesDia) {
             if (estado.avisos > 0) {
                 Text("${estado.avisos} notificação(ões) esperando", color = cor, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
             }
+            // as ligacoes perdidas de hoje (Matilha inteligente)
+            estado.perdidas.take(3).forEach { p ->
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) {
+                    Icon(Icons.Outlined.PhoneMissed, contentDescription = null, tint = cor, modifier = Modifier.size(16.dp))
+                    Text(
+                        "${p.nome} · ${hora(p.quando)}", color = Texto, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f).padding(start = 8.dp),
+                    )
+                    Text(
+                        "Retornar", color = cor, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold,
+                        style = TextStyle(textDecoration = TextDecoration.Underline),
+                        modifier = Modifier.clickable { acoes.retornar(p) },
+                    )
+                }
+            }
+            if (!estado.temChamadas) {
+                Text(
+                    "Mostrar ligações perdidas", color = cor, fontSize = 13.sp,
+                    style = TextStyle(textDecoration = TextDecoration.Underline),
+                    modifier = Modifier.padding(top = 6.dp).clickable(onClick = acoes.permitirChamadas),
+                )
+            }
+
+            // as rotinas: a ativa fica marcada; tocar liga (ou desliga, se ja estava)
+            Text("Rotina", color = TextoFraco, fontSize = 13.sp, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp))
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                org.wolfos.launcher.dados.Rotina.entries.forEach { r ->
+                    val ativa = r == estado.rotina
+                    Text(
+                        r.titulo,
+                        color = if (ativa) cor else Texto.copy(alpha = 0.75f),
+                        fontSize = 13.5.sp,
+                        fontWeight = if (ativa) FontWeight.SemiBold else FontWeight.Normal,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .border(1.dp, if (ativa) cor else Texto.copy(alpha = 0.18f), CircleShape)
+                            .clickable { acoes.ligarRotina(if (ativa && estado.rotinaManual) null else r) }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                    )
+                }
+            }
+            if (estado.rotina != null && !estado.rotinaManual) {
+                Text("ligada pelo horário", color = TextoFraco, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+            }
+
+            // o Modo Caca: o foco que esconde as distracoes
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                Icon(Icons.Outlined.TrackChanges, contentDescription = null, tint = cor, modifier = Modifier.size(18.dp))
+                if (estado.cacaAte > System.currentTimeMillis()) {
+                    val falta = ((estado.cacaAte - System.currentTimeMillis() + 59_999) / 60_000)
+                    Text("Modo Caça · faltam $falta min", color = Texto, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f).padding(start = 8.dp))
+                    Text(
+                        "Encerrar", color = cor, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold,
+                        style = TextStyle(textDecoration = TextDecoration.Underline),
+                        modifier = Modifier.clickable(onClick = acoes.pararCaca),
+                    )
+                } else {
+                    Text("Modo Caça", color = Texto, fontSize = 14.5.sp, modifier = Modifier.weight(1f).padding(start = 8.dp))
+                    listOf(25, 45, 90).forEach { m ->
+                        Text(
+                            "$m min", color = cor, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.clip(CircleShape).clickable { acoes.comecarCaca(m) }.padding(horizontal = 8.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+            }
             if (estado.sugeridos.isNotEmpty()) {
-                Text("Para este momento", color = TextoFraco, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
+                Text(estado.rotina?.let { "Para o modo ${it.titulo.lowercase()}" } ?: "Para este momento", color = TextoFraco, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
                 Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                     estado.sugeridos.take(4).forEach { app ->
                         Column(

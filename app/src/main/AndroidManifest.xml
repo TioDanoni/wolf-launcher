@@ -13,6 +13,7 @@
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
     <!-- Seu dia e a faixa do agora: os proximos compromissos da agenda. -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <!-- Seu dia e Wolf Insights: tempo de tela e uso dos apps (a pessoa liga se quiser; fica no celular). -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
     <!-- Painel: a bateria dos fones e aparelhos Bluetooth conectados (opcional). -->

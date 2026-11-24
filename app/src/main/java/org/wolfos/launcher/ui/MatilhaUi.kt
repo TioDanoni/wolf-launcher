@@ -2,6 +2,7 @@ package org.wolfos.launcher.ui
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Pets
+import androidx.compose.material.icons.rounded.PhoneMissed
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.Image
@@ -83,6 +84,8 @@ fun FileiraMatilha(
     temContatos: Boolean,
     acoes: AcoesPessoa,
     modifier: Modifier = Modifier,
+    /** Os 8 ultimos digitos de quem ligou hoje e nao foi atendido. */
+    perdidas: Set<String> = emptySet(),
 ) {
     Column(modifier) {
         TituloMatilha()
@@ -91,7 +94,7 @@ fun FileiraMatilha(
             verticalAlignment = Alignment.Top,
             modifier = Modifier.horizontalScroll(rememberScrollState()),
         ) {
-            pessoas.forEachIndexed { i, p -> Box(Modifier.entrada(i)) { Membro(p, Matilha.esperando(p, avisos), acoes) } }
+            pessoas.forEachIndexed { i, p -> Box(Modifier.entrada(i)) { Membro(p, Matilha.esperando(p, avisos), acoes, p.numero.filter(Char::isDigit).takeLast(8).let { it.length == 8 && it in perdidas }) } }
             if (pessoas.size < Matilha.MAXIMO) {
                 Adicionar(if (pessoas.isEmpty()) (if (temContatos) "escolher" else "permitir agenda") else null, acoes.adicionar)
             }
@@ -101,7 +104,7 @@ fun FileiraMatilha(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun Membro(pessoa: Contato, esperando: List<Aviso>, acoes: AcoesPessoa) {
+private fun Membro(pessoa: Contato, esperando: List<Aviso>, acoes: AcoesPessoa, perdeu: Boolean = false) {
     val cor = MaterialTheme.colorScheme.primary
     var menu by remember { mutableStateOf(false) }
     Box {
@@ -133,9 +136,13 @@ private fun Membro(pessoa: Contato, esperando: List<Aviso>, acoes: AcoesPessoa) 
         }
         val naoLidas = esperando.sumOf { it.mensagens }
         if (naoLidas > 0) SeloMatilha(naoLidas, Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 4.dp))
+        if (perdeu) SeloLigacao(Modifier.align(Alignment.TopStart).padding(top = 2.dp, start = 4.dp))
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             val item = @Composable { texto: String, acao: () -> Unit ->
                 DropdownMenuItem(text = { Text(texto, maxLines = 2, overflow = TextOverflow.Ellipsis) }, onClick = { menu = false; acao() })
+            }
+            if (perdeu) {
+                DropdownMenuItem(text = { Text("Ligou e você não atendeu · retornar", color = cor) }, onClick = { menu = false; acoes.ligar(pessoa) })
             }
             esperando.firstOrNull()?.let { a ->
                 DropdownMenuItem(
@@ -208,6 +215,8 @@ fun FileiraConversas(
     avisos: List<Aviso>,
     acoes: AcoesConversa,
     modifier: Modifier = Modifier,
+    perdidas: Set<String> = emptySet(),
+    ligar: (String) -> Unit = {},
 ) {
     var escolhendo by remember { mutableStateOf(false) }
     Column(modifier) {
@@ -218,7 +227,11 @@ fun FileiraConversas(
             modifier = Modifier.horizontalScroll(rememberScrollState()),
         ) {
             conversas.forEachIndexed { i, c ->
-                Box(Modifier.entrada(i)) { MembroConversa(c, c.chave in fixadas, Conversas.esperando(c, avisos), acoes) }
+                val numero = if (c.grupo) "" else c.id.substringBefore('@').filter(Char::isDigit)
+                val perdeu = numero.takeLast(8).let { it.length == 8 && it in perdidas }
+                Box(Modifier.entrada(i)) {
+                    MembroConversa(c, c.chave in fixadas, Conversas.esperando(c, avisos), acoes, perdeu) { ligar("+$numero") }
+                }
             }
             Adicionar(if (conversas.isEmpty()) "fixar" else null) { escolhendo = true }
         }
@@ -228,7 +241,7 @@ fun FileiraConversas(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MembroConversa(c: Conversa, fixada: Boolean, esperando: List<Aviso>, acoes: AcoesConversa) {
+private fun MembroConversa(c: Conversa, fixada: Boolean, esperando: List<Aviso>, acoes: AcoesConversa, perdeu: Boolean = false, retornar: () -> Unit = {}) {
     val cor = MaterialTheme.colorScheme.primary
     var menu by remember { mutableStateOf(false) }
     Box {
@@ -264,6 +277,7 @@ private fun MembroConversa(c: Conversa, fixada: Boolean, esperando: List<Aviso>,
         if (naoLidas > 0) {
             SeloMatilha(naoLidas, Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 4.dp))
         }
+        if (perdeu) SeloLigacao(Modifier.align(Alignment.TopStart).padding(top = 2.dp, start = 4.dp))
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             Text(
                 c.nome + if (c.grupo) "  ·  grupo" else "",
@@ -271,6 +285,9 @@ private fun MembroConversa(c: Conversa, fixada: Boolean, esperando: List<Aviso>,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
             )
+            if (perdeu) {
+                DropdownMenuItem(text = { Text("Ligou e você não atendeu · retornar", color = cor) }, onClick = { menu = false; retornar() })
+            }
             esperando.firstOrNull()?.let { a ->
                 DropdownMenuItem(
                     text = { Text("“${a.texto}”", color = cor, maxLines = 2, overflow = TextOverflow.Ellipsis) },
@@ -373,4 +390,22 @@ private fun SeloMatilha(n: Int, modifier: Modifier = Modifier) {
             .border(1.5.dp, Fundo, CircleShape)
             .padding(horizontal = 5.dp),
     ) { Text(texto, color = Fundo, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, maxLines = 1) }
+}
+
+/** A ligacao perdida: um telefone pequeno no canto da foto, sem cor de alarme. */
+@Composable
+private fun SeloLigacao(modifier: Modifier = Modifier) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .size(19.dp)
+            .clip(CircleShape)
+            .background(Texto)
+            .border(1.5.dp, Fundo, CircleShape),
+    ) {
+        androidx.compose.material3.Icon(
+            Icons.Rounded.PhoneMissed, null,
+            tint = Fundo, modifier = Modifier.size(11.dp),
+        )
+    }
 }

@@ -309,6 +309,58 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     fun moverParte(p: PartePainel, passo: Int) { arrumacao.mover(p, passo); _ordemPainel.value = arrumacao.ordem() }
     fun alternarParte(p: PartePainel) { arrumacao.alternar(p); _escondidasPainel.value = arrumacao.escondidas() }
 
+    // ---- Fase 3: rotinas, Modo Caca e chamadas perdidas
+    val rotinas = org.wolfos.launcher.dados.Rotinas(app)
+    val caca = org.wolfos.launcher.dados.ModoCaca(app)
+    private val _rotinaAtiva = MutableStateFlow(rotinas.ativa())
+    val rotinaAtiva: StateFlow<org.wolfos.launcher.dados.Rotina?> = _rotinaAtiva.asStateFlow()
+    private val _cacaAte = MutableStateFlow(caca.ate)
+    val cacaAte: StateFlow<Long> = _cacaAte.asStateFlow()
+    /** Muda quando os ajustes das rotinas ou do foco mudam (a tela de ajustes le de novo). */
+    private val _rotinasMudou = MutableStateFlow(0)
+    val rotinasMudou: StateFlow<Int> = _rotinasMudou.asStateFlow()
+    fun recarregarRotina() {
+        _rotinaAtiva.value = rotinas.ativa()
+        _cacaAte.value = caca.ate
+        _rotinasMudou.value++
+    }
+    fun ligarRotina(r: org.wolfos.launcher.dados.Rotina?) { rotinas.manual = r; recarregarRotina() }
+    fun definirRotinaAutomatica(r: org.wolfos.launcher.dados.Rotina, v: Boolean) { rotinas.definirAutomatica(r, v); recarregarRotina() }
+    fun definirRotinaDias(r: org.wolfos.launcher.dados.Rotina, d: Set<Int>) { rotinas.definirDias(r, d); recarregarRotina() }
+    fun definirRotinaJanela(r: org.wolfos.launcher.dados.Rotina, ini: Int, fim: Int) { rotinas.definirJanela(r, ini, fim); recarregarRotina() }
+    fun definirRotinaApps(r: org.wolfos.launcher.dados.Rotina, l: List<String>) { rotinas.definirApps(r, l); recarregarRotina() }
+    fun comecarCaca(minutos: Int) { caca.comecar(minutos); recarregarRotina() }
+    fun pararCaca() { caca.parar(); recarregarRotina() }
+    fun alternarDistracao(app: AppInfo) {
+        if (caca.ehDistracao(app)) {
+            if (app.chave in caca.extras()) caca.alternarExtra(app.chave) else caca.alternarLiberado(app.chave)
+        } else {
+            if (app.chave in caca.liberados()) caca.alternarLiberado(app.chave) else caca.alternarExtra(app.chave)
+        }
+        recarregarRotina()
+    }
+
+    private val _perdidas = MutableStateFlow<List<org.wolfos.launcher.dados.Perdida>>(emptyList())
+    val perdidas: StateFlow<List<org.wolfos.launcher.dados.Perdida>> = _perdidas.asStateFlow()
+    private val _temChamadas = MutableStateFlow(org.wolfos.launcher.dados.Chamadas.temPermissao(app))
+    val temChamadas: StateFlow<Boolean> = _temChamadas.asStateFlow()
+    fun carregarPerdidas() {
+        val contexto = getApplication<Application>()
+        _temChamadas.value = org.wolfos.launcher.dados.Chamadas.temPermissao(contexto)
+        if (_temChamadas.value) viewModelScope.launch {
+            _perdidas.value = withContext(Dispatchers.IO) { org.wolfos.launcher.dados.Chamadas.perdidasHoje(contexto) }
+        }
+    }
+    /** As perdidas ja vistas (tocou para retornar ou dispensou) nao voltam. */
+    private val vistasPrefs = app.getSharedPreferences("perdidas", Context.MODE_PRIVATE)
+    private val _perdidasVistas = MutableStateFlow(vistasPrefs.getLong("ate", 0L))
+    val perdidasVistas: StateFlow<Long> = _perdidasVistas.asStateFlow()
+    fun verPerdidas() {
+        val agora = System.currentTimeMillis()
+        vistasPrefs.edit().putLong("ate", agora).apply()
+        _perdidasVistas.value = agora
+    }
+
     private val _modoLista = MutableStateFlow(preferencias.modoLista)
     val modoLista: StateFlow<String> = _modoLista.asStateFlow()
     fun definirModoLista(v: String) { preferencias.modoLista = v; _modoLista.value = v }
@@ -587,6 +639,8 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         carregarConversas()
         carregarPacotesIcones()
         recarregarNotas()
+        recarregarRotina()
+        carregarPerdidas()
         carregarAparelhos()
         _timerMudou.value++
         carregarDia()

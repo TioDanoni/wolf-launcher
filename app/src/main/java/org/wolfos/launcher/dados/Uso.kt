@@ -18,6 +18,9 @@ class Uso(contexto: Context) {
         val h = horaDe(agora)
         val e = prefs.edit()
         e.putInt("a|$h|${app.chave}", prefs.getInt("a|$h|${app.chave}", 0) + 1)
+        // Wolf Sense: tambem o dia da semana com o periodo (madrugada, manha, tarde, noite)
+        val d = "d|${diaDe(agora)}|${h / 6}|${app.chave}"
+        e.putInt(d, prefs.getInt(d, 0) + 1)
         // as aberturas de hoje (as ultimas 40 bastam)
         val hoje = (prefs.getString("hoje", "").orEmpty().lines().filter { it.isNotBlank() } + "$agora\t${app.chave}").takeLast(40)
         e.putString("hoje", hoje.joinToString("\n"))
@@ -39,12 +42,22 @@ class Uso(contexto: Context) {
     fun notas(hora: Int): Map<String, Double> {
         val total = HashMap<String, Double>()
         val perto = vizinhas(hora).toSet()
+        val agora = System.currentTimeMillis()
+        val dia = diaDe(agora).toString()
+        val periodo = (hora / 6).toString()
         for ((k, v) in prefs.all) {
-            if (!k.startsWith("a|") || v !is Int) continue
-            val partes = k.split('|', limit = 3)
-            val chave = partes.getOrNull(2) ?: continue
-            val peso = if (partes[1].toIntOrNull() in perto) 4.0 else 1.0
-            total[chave] = (total[chave] ?: 0.0) + v * peso
+            if (v !is Int) continue
+            if (k.startsWith("a|")) {
+                val partes = k.split('|', limit = 3)
+                val chave = partes.getOrNull(2) ?: continue
+                val peso = if (partes[1].toIntOrNull() in perto) 4.0 else 1.0
+                total[chave] = (total[chave] ?: 0.0) + v * peso
+            } else if (k.startsWith("d|")) {
+                // o mesmo dia da semana, no mesmo periodo, pesa a mais (segunda de manha != sabado de manha)
+                val partes = k.split('|', limit = 4)
+                val chave = partes.getOrNull(3) ?: continue
+                if (partes[1] == dia && partes[2] == periodo) total[chave] = (total[chave] ?: 0.0) + v * 3.0
+            }
         }
         return total
     }
@@ -73,6 +86,9 @@ class Uso(contexto: Context) {
     private fun vizinhas(hora: Int) = listOf((hora + 23) % 24, hora, (hora + 1) % 24)
 
     companion object {
+        /** 1 = segunda ... 7 = domingo. */
+        fun diaDe(millis: Long): Int = java.time.Instant.ofEpochMilli(millis).atZone(java.time.ZoneId.systemDefault()).dayOfWeek.value
+
         fun horaDe(millis: Long): Int = Calendar.getInstance().apply { timeInMillis = millis }.get(Calendar.HOUR_OF_DAY)
 
         fun inicioDoDia(): Long = Calendar.getInstance().apply {

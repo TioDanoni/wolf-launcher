@@ -63,11 +63,20 @@ import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.Wallpaper
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.PhoneMissed
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.TrackChanges
+import androidx.compose.material.icons.outlined.Flight
+import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -140,6 +149,13 @@ class EstadoAjustes(
     /** Todos os apps (para adicionar favoritos). */
     val todosApps: List<AppInfo>,
     val appsEscondidos: List<AppInfo>,
+    /** As rotinas e o Modo Caca (lidos direto; [rotinasMudou] avisa quando mudam). */
+    val rotinas: org.wolfos.launcher.dados.Rotinas,
+    val caca: org.wolfos.launcher.dados.ModoCaca,
+    val rotinasMudou: Int,
+    val rotinaAtiva: org.wolfos.launcher.dados.Rotina?,
+    val temChamadas: Boolean,
+    val temUso: Boolean,
 )
 
 /** O que cada ajuste faz. */
@@ -181,6 +197,15 @@ class AcoesAjustes(
     val ligarBloqueio: () -> Unit,
     val mostrarApp: (AppInfo) -> Unit,
     val abrirCodigo: () -> Unit,
+    val ligarRotina: (org.wolfos.launcher.dados.Rotina?) -> Unit,
+    val rotinaAutomatica: (org.wolfos.launcher.dados.Rotina, Boolean) -> Unit,
+    val rotinaDias: (org.wolfos.launcher.dados.Rotina, Set<Int>) -> Unit,
+    val rotinaJanela: (org.wolfos.launcher.dados.Rotina, Int, Int) -> Unit,
+    val rotinaApps: (org.wolfos.launcher.dados.Rotina, List<String>) -> Unit,
+    val comecarCaca: (Int) -> Unit,
+    val alternarDistracao: (AppInfo) -> Unit,
+    val permitirChamadas: () -> Unit,
+    val permitirUso: () -> Unit,
 )
 
 /** As paginas de dentro dos ajustes (a tela principal pode abrir direto numa delas). */
@@ -188,6 +213,7 @@ object PaginasAjustes {
     const val PRINCIPAL = "principal"
     const val FAVORITOS = "favoritos"
     const val ESCONDIDOS = "escondidos"
+    const val DISTRACOES = "distracoes"
 }
 
 /** As abas dos ajustes. */
@@ -195,6 +221,7 @@ private enum class Aba(val titulo: String, val icone: ImageVector) {
     INICIO("Início", Icons.Outlined.Home),
     VISUAL("Visual", Icons.Outlined.Palette),
     MATILHA("Matilha", Icons.Outlined.Pets),
+    ROTINAS("Rotinas", Icons.Outlined.Schedule),
     GESTOS("Gestos", Icons.Outlined.Gesture),
     APPS("Apps", Icons.Outlined.Apps),
     SISTEMA("Sistema", Icons.Outlined.Settings),
@@ -218,6 +245,9 @@ fun AjustesTela(estado: EstadoAjustes, acoes: AcoesAjustes, paginaInicial: Strin
         PaginasAjustes.ESCONDIDOS -> Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState())) {
             PaginaEscondidos(estado, acoes, voltar)
         }
+        PaginasAjustes.DISTRACOES -> Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState())) {
+            PaginaDistracoes(estado, acoes, voltar)
+        }
         else -> {
             val abas = Aba.entries
             val paginas = rememberPagerState { abas.size }
@@ -234,6 +264,7 @@ fun AjustesTela(estado: EstadoAjustes, acoes: AcoesAjustes, paginaInicial: Strin
                             Aba.INICIO -> AbaInicio(estado, acoes) { pagina = it }
                             Aba.VISUAL -> AbaVisual(estado, acoes)
                             Aba.MATILHA -> AbaMatilha(estado, acoes)
+                            Aba.ROTINAS -> AbaRotinas(estado, acoes) { pagina = it }
                             Aba.GESTOS -> AbaGestos(estado, acoes)
                             Aba.APPS -> AbaApps(estado) { pagina = it }
                             Aba.SISTEMA -> AbaSistema(estado, acoes)
@@ -489,6 +520,171 @@ private fun AbaMatilha(estado: EstadoAjustes, acoes: AcoesAjustes) {
     }
 }
 
+// ---------------------------------------------------------------- Rotinas e Modo Caca
+
+private val DIAS = listOf("S", "T", "Q", "Q", "S", "S", "D")
+
+private fun hhmm(m: Int) = "%02d:%02d".format(m / 60, m % 60)
+
+/** "seg a sex · 09:00 – 18:00". */
+private fun resumoDias(d: Set<Int>): String = when (d) {
+    (1..7).toSet() -> "todo dia"
+    (1..5).toSet() -> "seg a sex"
+    setOf(6, 7) -> "fim de semana"
+    else -> d.sorted().joinToString(" ") { listOf("seg", "ter", "qua", "qui", "sex", "sáb", "dom")[it - 1] }
+}
+
+@Composable
+private fun AbaRotinas(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (String) -> Unit) {
+    val rs = estado.rotinas
+    var aberta by remember { mutableStateOf<org.wolfos.launcher.dados.Rotina?>(null) }
+    var escolhendoApps by remember { mutableStateOf<org.wolfos.launcher.dados.Rotina?>(null) }
+    // a chave faz reler as preferencias quando algo muda
+    key(estado.rotinasMudou) {
+        SecaoMenu("Rotinas")
+        Text(
+            "Cada rotina sobe os apps dela na tela inicial e no seu dia. Liga sozinha no horário, " +
+                "ou à mão: toque numa rotina no seu dia, ou escreva “modo trabalho” na busca.",
+            color = TextoFraco, fontSize = 12.5.sp, modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 6.dp),
+        )
+        for (r in org.wolfos.launcher.dados.Rotina.entries) {
+            val auto = rs.automatica(r)
+            val (ini, fim) = rs.janela(r)
+            val ativa = r == estado.rotinaAtiva
+            LinhaMenu(
+                when (r) {
+                    org.wolfos.launcher.dados.Rotina.TRABALHO -> Icons.Outlined.Work
+                    org.wolfos.launcher.dados.Rotina.CASA -> Icons.Outlined.Home
+                    org.wolfos.launcher.dados.Rotina.ACADEMIA -> Icons.Outlined.FitnessCenter
+                    org.wolfos.launcher.dados.Rotina.VIAGEM -> Icons.Outlined.Flight
+                    org.wolfos.launcher.dados.Rotina.DESCANSO -> Icons.Outlined.Bedtime
+                },
+                r.titulo + if (ativa) "  · ativa" else "",
+                if (auto) "${resumoDias(rs.dias(r))} · ${hhmm(ini)} – ${hhmm(fim)}" else "só à mão",
+                fim = { ChaveWolf(auto) { acoes.rotinaAutomatica(r, it) } },
+            ) { aberta = if (aberta == r) null else r }
+            if (aberta == r) {
+                Column(Modifier.padding(start = 78.dp, end = 24.dp, bottom = 10.dp)) {
+                    // os dias da semana: cada letra liga/desliga
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        val dias = rs.dias(r)
+                        DIAS.forEachIndexed { i, l ->
+                            val d = i + 1
+                            val marcado = d in dias
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .border(1.dp, if (marcado) MaterialTheme.colorScheme.primary else Texto.copy(alpha = 0.15f), CircleShape)
+                                    .clickable { acoes.rotinaDias(r, if (marcado) dias - d else dias + d) },
+                            ) { Text(l, color = if (marcado) MaterialTheme.colorScheme.primary else TextoFraco, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
+                        }
+                    }
+                    // o horario: comeco e fim, de meia em meia hora
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp)) {
+                        Text("das", color = TextoFraco, fontSize = 13.sp)
+                        Ajustador(hhmm(ini), { acoes.rotinaJanela(r, (ini + 1410) % 1440, fim) }, { acoes.rotinaJanela(r, (ini + 30) % 1440, fim) })
+                        Text("às", color = TextoFraco, fontSize = 13.sp)
+                        Ajustador(hhmm(fim), { acoes.rotinaJanela(r, ini, (fim + 1410) % 1440) }, { acoes.rotinaJanela(r, ini, (fim + 30) % 1440) })
+                    }
+                    // os apps da rotina
+                    val escolhidos = rs.apps(r)
+                    val apps = if (escolhidos.isEmpty()) r.appsPadrao(estado.todosApps)
+                    else escolhidos.mapNotNull { c -> estado.todosApps.firstOrNull { it.chave == c } }
+                    Text(
+                        if (escolhidos.isEmpty()) "Apps (escolhidos pelo launcher; toque em um para tirar)" else "Apps (toque em um para tirar)",
+                        color = TextoFraco, fontSize = 12.5.sp, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp),
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    ) {
+                        apps.forEach { a ->
+                            IconeApp(a, 34.dp, Modifier.clip(RoundedCornerShape(10.dp)).clickable {
+                                acoes.rotinaApps(r, apps.map { it.chave } - a.chave)
+                            })
+                        }
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.size(34.dp).clip(CircleShape).border(1.dp, Texto.copy(alpha = 0.2f), CircleShape).clickable { escolhendoApps = r },
+                        ) { Icon(Icons.Outlined.Add, contentDescription = "Adicionar", tint = TextoFraco, modifier = Modifier.size(18.dp)) }
+                    }
+                    Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (ativa && rs.manual == r) Pilula("Desligar agora", destaque = false) { acoes.ligarRotina(null) }
+                        else Pilula("Ligar agora", destaque = true) { acoes.ligarRotina(r) }
+                    }
+                }
+            }
+        }
+
+        SecaoMenu("Modo Caça")
+        Text(
+            "O foco do lobo: por um tempo, os apps que distraem somem da tela inicial e das sugestões. " +
+                "Comece no seu dia, ou escreva “caça 45 min” na busca.",
+            color = TextoFraco, fontSize = 12.5.sp, modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 6.dp),
+        )
+        val distraem = estado.todosApps.count(estado.caca::ehDistracao)
+        LinhaMenu(
+            Icons.Outlined.TrackChanges, "Apps que distraem",
+            if (distraem == 0) "nenhum ainda; toque para escolher" else "$distraem app(s) somem durante a caça",
+            fim = { Seta() },
+        ) { abrir(PaginasAjustes.DISTRACOES) }
+        Pilulas(listOf("Caçar 25 min", "45 min", "90 min"), -1) { i -> acoes.comecarCaca(listOf(25, 45, 90)[i]) }
+    }
+    escolhendoApps?.let { r ->
+        EscolherApps(
+            titulo = "Apps da rotina ${r.titulo}",
+            apps = estado.todosApps,
+            aoEscolher = { a ->
+                val atuais = rs.apps(r).ifEmpty { r.appsPadrao(estado.todosApps).map { it.chave } }
+                acoes.rotinaApps(r, atuais + a.chave)
+            },
+            aoFechar = { escolhendoApps = null },
+        )
+    }
+}
+
+/** "‹ 09:00 ›": menos e mais meia hora. */
+@Composable
+private fun Ajustador(valor: String, menos: () -> Unit, mais: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 6.dp)) {
+        Icon(Icons.Outlined.ChevronLeft, contentDescription = "Antes", tint = TextoFraco, modifier = Modifier.size(28.dp).clip(CircleShape).clickable(onClick = menos).padding(4.dp))
+        Text(valor, color = Texto, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Icon(Icons.Outlined.ChevronRight, contentDescription = "Depois", tint = TextoFraco, modifier = Modifier.size(28.dp).clip(CircleShape).clickable(onClick = mais).padding(4.dp))
+    }
+}
+
+@Composable
+private fun PaginaDistracoes(estado: EstadoAjustes, acoes: AcoesAjustes, voltar: () -> Unit) {
+    var adicionando by remember { mutableStateOf(false) }
+    Cabecalho("Apps que distraem", voltar)
+    Text(
+        "Durante o Modo Caça estes somem da tela inicial. Redes sociais, vídeos e jogos entram sozinhos; " +
+            "tire os que você precisa e coloque outros.",
+        color = TextoFraco, fontSize = 13.5.sp, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+    )
+    key(estado.rotinasMudou) {
+        for (app in estado.todosApps.filter(estado.caca::ehDistracao)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)) {
+                IconeApp(app, 40.dp)
+                Text(app.nome, color = Texto, fontSize = 16.sp, modifier = Modifier.weight(1f).padding(start = 16.dp))
+                Pilula("Liberar", destaque = false) { acoes.alternarDistracao(app) }
+            }
+        }
+    }
+    LinhaMenu(Icons.Outlined.Add, "Adicionar app", fim = { Seta() }) { adicionando = true }
+    if (adicionando) {
+        EscolherApps(
+            titulo = "Esse app distrai",
+            apps = estado.todosApps.filterNot(estado.caca::ehDistracao),
+            aoEscolher = { acoes.alternarDistracao(it) },
+            aoFechar = { adicionando = false },
+        )
+    }
+}
+
 // ---------------------------------------------------------------- Gestos
 
 @Composable
@@ -573,6 +769,14 @@ private fun AbaSistema(estado: EstadoAjustes, acoes: AcoesAjustes) {
     LinhaMenu(
         Icons.Outlined.Contacts, "Contatos", "pessoas no buscador e nomes na Matilha",
         fim = { Valor(if (estado.temContatos) "ligado" else "permitir") }, aoTocar = if (estado.temContatos) null else acoes.permitirContatos,
+    )
+    LinhaMenu(
+        Icons.Outlined.PhoneMissed, "Ligações", "quem ligou e você não atendeu, na Matilha e no seu dia",
+        fim = { Valor(if (estado.temChamadas) "ligado" else "permitir") }, aoTocar = if (estado.temChamadas) null else acoes.permitirChamadas,
+    )
+    LinhaMenu(
+        Icons.Outlined.Insights, "Acesso ao uso", "tempo de tela e Wolf Insights (fica só no celular)",
+        fim = { Valor(if (estado.temUso) "ligado" else "permitir") }, aoTocar = acoes.permitirUso,
     )
     LinhaMenu(
         Icons.Outlined.Lock, "Bloquear a tela", "serviço de acessibilidade (não lê nada da tela)",

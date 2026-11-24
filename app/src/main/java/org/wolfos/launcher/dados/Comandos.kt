@@ -24,7 +24,7 @@ class Acao(
 )
 
 /** Os atalhos de exemplo que aparecem com a barra vazia. */
-val EXEMPLOS = listOf("timer 20 min", "pomodoro", "nota comprar filamento", "tarefa ligar pro banco", "150 * 0.15", "lanterna", "wi-fi")
+val EXEMPLOS = listOf("timer 20 min", "modo trabalho", "caça 45 min", "pomodoro", "nota comprar filamento", "tarefa ligar pro banco", "150 * 0.15", "lanterna", "wi-fi")
 
 /**
  * Entende o que foi escrito na barra de comando. Devolve as acoes na ordem de
@@ -41,6 +41,7 @@ fun interpretar(texto: String): List<Acao> {
     if ("pomodoro".startsWith(t) && t.length >= 4) {
         acoes += Acao("◷", "Pomodoro de 25 min", "foco; o Painel mostra quanto falta") { ctx -> TimerWolf(ctx).comecar(ctx, 25, "Pomodoro") }
     }
+    acoes += rotinaOuCaca(t)
     timer(t)?.let(acoes::add)
     alarme(t)?.let(acoes::add)
     conta(texto.trim())?.let(acoes::add)
@@ -48,6 +49,43 @@ fun interpretar(texto: String): List<Acao> {
         acoes += Acao("ϟ", if (Lanterna.ligada) "Desligar a lanterna" else "Ligar a lanterna", "lanterna do celular", executar = Lanterna::alternar)
     }
     acoes += ajustesDoAndroid(t)
+    return acoes
+}
+
+// ---------------------------------------------------------------- rotinas e Modo Caca
+
+private val CACA = Regex("""^(modo\s*)?(caca|foco|focar)\s*(\d+)?\s*(m|min|minutos?|h|horas?)?$""")
+
+private fun rotinaOuCaca(t: String): List<Acao> {
+    val acoes = mutableListOf<Acao>()
+    // "modo trabalho", "trabalho", "modo casa"...
+    val sem = t.removePrefix("modo").trim()
+    if (sem.length >= 3) {
+        Rotina.entries.filter { semAcento(it.titulo).startsWith(sem) && (t.startsWith("modo") || sem.length >= 5) }.forEach { r ->
+            acoes += Acao("◐", "Modo ${r.titulo}", "a tela inicial sugere os apps de ${r.titulo.lowercase()}", especial = "rotina") { ctx ->
+                Rotinas(ctx).manual = r
+            }
+        }
+    }
+    if (t.length >= 6 && listOf("modo normal", "sair do modo", "desligar modo", "sem rotina").any { it.startsWith(t) || t.startsWith(it) }) {
+        acoes += Acao("◑", "Sair da rotina", "volta ao normal (as automáticas seguem o horário)", especial = "rotina") { ctx ->
+            Rotinas(ctx).manual = null
+        }
+    }
+    CACA.find(t)?.let { m ->
+        val n = m.groupValues[3].toIntOrNull()
+        val minutos = when {
+            n == null -> 45
+            m.groupValues[4].startsWith("h") -> n * 60
+            else -> n
+        }.coerceIn(1, 12 * 60)
+        acoes += Acao("◉", "Modo Caça por ${if (minutos % 60 == 0) "${minutos / 60} h" else "$minutos min"}", "esconde as distrações; só o essencial fica", especial = "rotina") { ctx ->
+            ModoCaca(ctx).comecar(minutos)
+        }
+    }
+    if (listOf("parar caca", "sair da caca", "parar foco", "sair do foco").any { it.startsWith(t) && t.length >= 7 }) {
+        acoes += Acao("◎", "Encerrar o Modo Caça", "as distrações voltam", especial = "rotina") { ctx -> ModoCaca(ctx).parar() }
+    }
     return acoes
 }
 

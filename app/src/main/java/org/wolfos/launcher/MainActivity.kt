@@ -289,6 +289,9 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     val pedidoAgenda = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         vm.carregarDia()
     }
+    val pedidoChamadas = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        vm.carregarPerdidas()
+    }
 
     // adicionar widget: pedir um id, ligar (perguntando na primeira vez), configurar, guardar
     var widgetPendente by remember { mutableStateOf<Pair<Int, AppWidgetProviderInfo>?>(null) }
@@ -318,7 +321,34 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     }
 
     // o painel: favoritos (os escolhidos, ou os mais usados) e o "Agora" (o que faz sentido ja)
-    val notasUso = remember(hora, usoMudou) { vm.uso.notas(hora) }
+    // Wolf Sense: o costume da hora e do dia da semana; a rotina ativa sobe os apps dela
+    val rotinaAtiva by vm.rotinaAtiva.collectAsStateWithLifecycle()
+    val rotinasMudou by vm.rotinasMudou.collectAsStateWithLifecycle()
+    val cacaAte by vm.cacaAte.collectAsStateWithLifecycle()
+    // as rotinas pelo horario: confere de novo a cada hora que vira
+    LaunchedEffect(hora) { vm.recarregarRotina() }
+    val perdidasTodas by vm.perdidas.collectAsStateWithLifecycle()
+    val perdidasVistas by vm.perdidasVistas.collectAsStateWithLifecycle()
+    val perdidas = remember(perdidasTodas, perdidasVistas) { perdidasTodas.filter { it.quando > perdidasVistas } }
+    val perdidas8 = remember(perdidas) { perdidas.map { it.final8 }.filter { it.length == 8 }.toSet() }
+    // o relogio do Modo Caca: anda de 20 em 20 s e desliga sozinho no fim
+    var agoraCaca by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(cacaAte) {
+        while (cacaAte > 0) {
+            agoraCaca = System.currentTimeMillis()
+            if (agoraCaca >= cacaAte) { vm.recarregarRotina(); break }
+            kotlinx.coroutines.delay(20_000)
+        }
+    }
+    val temChamadas by vm.temChamadas.collectAsStateWithLifecycle()
+    val emCaca = cacaAte > 0 && agoraCaca < cacaAte
+    val notasHora = remember(hora, usoMudou) { vm.uso.notas(hora) }
+    val notasUso = remember(notasHora, rotinaAtiva, rotinasMudou, apps) {
+        val r = rotinaAtiva ?: return@remember notasHora
+        val escolhidos = vm.rotinas.apps(r).toSet()
+        val daRotina = if (escolhidos.isNotEmpty()) apps.filter { it.chave in escolhidos } else r.appsPadrao(apps)
+        notasHora + daRotina.associate { it.chave to (notasHora[it.chave] ?: 0.0) + 40.0 }
+    }
     val porChaveApp = remember(apps) { apps.associateBy { it.chave } }
     val favoritosApps = remember(favoritosChaves, porChaveApp, notasUso) {
         favoritosChaves.mapNotNull { porChaveApp[it] }.ifEmpty { Sugestoes.favoritosPadrao(apps, notasUso) }
@@ -340,6 +370,11 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                 favoritosApps.map { it.chave }.toSet(), quantos = (9 - favoritosApps.size).coerceAtLeast(0),
             )
         }
+    }
+    // Modo Caca: as distracoes somem da tela inicial enquanto durar
+    val (listaInicio, agoraInicio) = remember(listaFixa, agoraApps, emCaca, rotinasMudou) {
+        if (!emCaca) listaFixa to agoraApps
+        else listaFixa.filterNot(vm.caca::ehDistracao) to agoraApps.filterNot(vm.caca::ehDistracao)
     }
     // a folha da previsao da semana (tocar no clima)
     var mostrandoSemana by remember { mutableStateOf(false) }
@@ -426,14 +461,38 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
             musica?.let { m -> apps.firstOrNull { it.pacote == m.pacote } }?.let(acoesApp.abrir)
         },
     )
-    val faixaAgora = remember(noite, alarme, eventos, hora, mostrarCompromissos) {
+    val ligarPara = { numero: String ->
+        Apps.abrirTela(contexto, Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:" + android.net.Uri.encode(numero))))
+        vm.verPerdidas()
+    }
+    val faixaAgora = remember(noite, alarme, eventos, hora, mostrarCompromissos, emCaca, agoraCaca, perdidas, rotinaAtiva) {
+        when {
+            emCaca -> {
+                val falta = ((cacaAte - agoraCaca + 59_999) / 60_000).coerceAtLeast(1)
+                return@remember FaixaInfo("◉", "Modo Caça · ${if (falta >= 60) "${falta / 60} h ${falta % 60} min" else "$falta min"}", "Encerrar") { vm.pararCaca() }
+            }
+            perdidas.size == 1 -> {
+                val p = perdidas.first()
+                return@remember FaixaInfo("✆", "${p.nome} ligou · ${quandoFoi(p.quando)}", "Retornar") { ligarPara(p.numero) }
+            }
+            perdidas.size > 1 -> return@remember FaixaInfo(
+                "✆", "${perdidas.size} ligações perdidas · " + perdidas.take(2).joinToString(", ") { it.nome.substringBefore(' ') }, "Ver",
+            ) {
+                Apps.abrirTela(contexto, Intent(Intent.ACTION_VIEW, android.provider.CallLog.Calls.CONTENT_URI))
+                vm.verPerdidas()
+            }
+        }
         faixaDoAgora(
             // com os compromissos na tela, a faixa nao repete o proximo evento
             noite, alarme, if (mostrarCompromissos) emptyList() else eventos, abrirAlarmes,
             criarAlarme = { Apps.abrirTela(contexto, Intent(AlarmClock.ACTION_SET_ALARM)) },
             entrar = { Agenda.entrar(contexto, it) },
             abrir = { Agenda.abrir(contexto, it) },
-        )
+        ) ?: rotinaAtiva?.let { r ->
+            // a rotina ligada: a mao tem "Sair"; a automatica so avisa
+            if (vm.rotinas.manual == r) FaixaInfo("◐", "Modo ${r.titulo}", "Sair") { vm.ligarRotina(null) }
+            else FaixaInfo("◐", "Modo ${r.titulo} · pelo horário", null) { }
+        }
     }
     // as acoes da busca/comando: a maioria se faz sozinha; "insights" abre o Wolf Insights
     val fazerAcao: (org.wolfos.launcher.dados.Acao) -> Unit = { a ->
@@ -444,6 +503,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         } else {
             a.executar(contexto)
             vm.recarregarNotas()
+            vm.recarregarRotina()
             vm.timerTalvezMudou()
             voltarAoInicio()
         }
@@ -458,6 +518,11 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         abrirInsights = { mostrandoInsights = true },
         abrirPainel = { tela = Telas.WIDGETS },
         voltar = voltarAoInicio,
+        ligarRotina = vm::ligarRotina,
+        comecarCaca = vm::comecarCaca,
+        pararCaca = vm::pararCaca,
+        retornar = { ligarPara(it.numero) },
+        permitirChamadas = { pedidoChamadas.launch(Manifest.permission.READ_CALL_LOG) },
     )
     val acoesPessoa = AcoesPessoa(
         ligar = { Contatos.ligar(contexto, it) },
@@ -495,10 +560,15 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
             soFixadas = matilhaSoFixadas, organizarPorAvisos = matilhaOrganizar,
         )
     }
+    // quem ligou e nao foi atendido vem primeiro (com "organizar pelos avisos")
+    val matilhaComLigacoes = remember(daMatilha, perdidas8, matilhaOrganizar) {
+        if (!matilhaOrganizar || perdidas8.isEmpty()) daMatilha
+        else daMatilha.sortedByDescending { c -> !c.grupo && c.id.substringBefore('@').filter(Char::isDigit).takeLast(8) in perdidas8 }
+    }
     val acoesComando = AcoesComando(
         ligar = { if (Contatos.ligar(contexto, it)) voltarAoInicio() },
         mensagem = { if (Contatos.mensagem(contexto, it)) voltarAoInicio() },
-        executar = { acao -> acao.executar(contexto); voltarAoInicio() },
+        executar = { acao -> acao.executar(contexto); vm.recarregarRotina(); voltarAoInicio() },
         ajustes = { comando = ""; tela = Telas.AJUSTES },
         web = { Apps.buscarNaWeb(contexto, it); voltarAoInicio() },
         pedirContatos = { pedidoContatos.launch(Manifest.permission.READ_CONTACTS) },
@@ -539,8 +609,8 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                     atualizacao, ehPadrao, faixaAgora, noite, acoesInicio,
                     painel = {
                         ListaInicio(
-                            favoritos = listaFixa,
-                            sugeridos = agoraApps,
+                            favoritos = listaInicio,
+                            sugeridos = agoraInicio,
                             todos = apps,
                             avisos = avisosPorPacote,
                             ultimas = ultimas,
@@ -586,9 +656,12 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                     when {
                         !mostrarMatilha -> Unit
                         // com o WhatsApp: as conversas recentes (pessoas e grupos) e as fixadas
-                        fonteMatilha != FonteMatilha.AGENDA && conversasComNome.isNotEmpty() -> FileiraConversas(daMatilha, conversasComNome, fixadas, avisos, acoesConversa)
+                        fonteMatilha != FonteMatilha.AGENDA && conversasComNome.isNotEmpty() -> FileiraConversas(
+                            matilhaComLigacoes, conversasComNome, fixadas, avisos, acoesConversa,
+                            perdidas = perdidas8, ligar = { ligarPara(it) },
+                        )
                         // sem ele: as pessoas da agenda
-                        else -> FileiraMatilha(pessoas, avisos, temContatos, acoesPessoa)
+                        else -> FileiraMatilha(pessoas, avisos, temContatos, acoesPessoa, perdidas = perdidas8)
                     }
                 }
                 atual == Telas.DIA -> {
@@ -612,6 +685,11 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                             modoNoite = modoNoite,
                             noiteInicio = janelaNoite.first,
                             avisos = avisos.size,
+                            rotina = rotinaAtiva,
+                            rotinaManual = rotinaAtiva != null && rotinaAtiva == vm.rotinas.manual,
+                            cacaAte = cacaAte,
+                            perdidas = perdidas,
+                            temChamadas = temChamadas,
                         ),
                         acoesDia,
                     )
@@ -757,6 +835,12 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         favoritos = favoritosChaves.mapNotNull { porChaveApp[it] },
                         todosApps = apps,
                         appsEscondidos = todosApps.filter { it.chave in escondidos },
+                        rotinas = vm.rotinas,
+                        caca = vm.caca,
+                        rotinasMudou = rotinasMudou,
+                        rotinaAtiva = rotinaAtiva,
+                        temChamadas = temChamadas,
+                        temUso = vm.temUso.collectAsStateWithLifecycle().value,
                     ),
                     AcoesAjustes(
                         fechar = voltarAoInicio,
@@ -804,6 +888,15 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         ligarBloqueio = { Bloqueio.pedirPermissao(contexto) },
                         mostrarApp = { vm.esconder(it, false) },
                         abrirCodigo = { Apps.abrirTela(contexto, Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/TioDanoni/wolf-launcher"))) },
+                        ligarRotina = vm::ligarRotina,
+                        rotinaAutomatica = vm::definirRotinaAutomatica,
+                        rotinaDias = vm::definirRotinaDias,
+                        rotinaJanela = vm::definirRotinaJanela,
+                        rotinaApps = vm::definirRotinaApps,
+                        comecarCaca = vm::comecarCaca,
+                        alternarDistracao = vm::alternarDistracao,
+                        permitirChamadas = { pedidoChamadas.launch(Manifest.permission.READ_CALL_LOG) },
+                        permitirUso = { Insights.pedirPermissao(contexto) },
                     ),
                     paginaInicial = paginaAjustes,
                 )
@@ -827,6 +920,16 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
  * A faixa do agora na tela inicial: a noite, o despertador; de dia, o proximo
  * compromisso das proximas 3 horas (com "Entrar" se tiver link de reuniao).
  */
+/** "agora há pouco", "há 25 min", "às 14:05". */
+private fun quandoFoi(quando: Long): String {
+    val min = (System.currentTimeMillis() - quando) / 60_000
+    return when {
+        min < 2 -> "agora há pouco"
+        min < 60 -> "há $min min"
+        else -> java.time.LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(quando), java.time.ZoneId.systemDefault()).let { "às %02d:%02d".format(it.hour, it.minute) }
+    }
+}
+
 private fun faixaDoAgora(
     noite: Boolean,
     alarme: Long?,
