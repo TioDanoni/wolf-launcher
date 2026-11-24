@@ -27,6 +27,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.EventNote
@@ -99,7 +101,9 @@ class EstadoAjustes(
     val fundoAnimado: Boolean,
     val paleta: Paleta,
     val estiloRelogio: EstiloRelogio,
-    val iconesLinha: Boolean,
+    /** ORIGINAL, LINHA, PALETA, CINZA ou "pack:<pacote>". */
+    val estiloIcones: String,
+    val pacotesIcones: List<org.wolfos.launcher.dados.PacoteIcones>,
     val ritmo: Boolean,
     val modoNoite: Boolean,
     val janelaNoite: Pair<Int, Int>,
@@ -135,7 +139,8 @@ class AcoesAjustes(
     val fundoAnimado: (Boolean) -> Unit,
     val paleta: (Paleta) -> Unit,
     val estiloRelogio: (EstiloRelogio) -> Unit,
-    val iconesLinha: (Boolean) -> Unit,
+    val estiloIcones: (String) -> Unit,
+    val baixarPacotes: () -> Unit,
     val ritmo: (Boolean) -> Unit,
     val modoNoite: (Boolean) -> Unit,
     val janelaNoite: (Int, Int) -> Unit,
@@ -213,6 +218,33 @@ private fun PaginaPrincipal(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (
         }
     }
 
+    SecaoMenu("Ícones")
+    // a previa: alguns apps de verdade, no estilo escolhido
+    Row(
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp),
+    ) {
+        for (app in (estado.favoritos + estado.todosApps).distinctBy { it.chave }.take(6)) IconeApp(app, 40.dp)
+    }
+    val estilos = listOf("ORIGINAL" to "Coloridos", "LINHA" to "Em linha", "PALETA" to "Na cor da paleta", "CINZA" to "Cinza suave")
+    Pilulas(estilos.map { it.second }, estilos.indexOfFirst { it.first == estado.estiloIcones }) { acoes.estiloIcones(estilos[it].first) }
+    Text(
+        "“Em linha” e “Na cor da paleta” usam o ícone temático do Android 13+; app sem ele aparece em cinza.",
+        color = TextoFraco, fontSize = 12.sp, modifier = Modifier.padding(start = 78.dp, end = 24.dp, bottom = 4.dp),
+    )
+    for (p in estado.pacotesIcones) {
+        val marcado = estado.estiloIcones == "pack:" + p.pacote
+        LinhaMenu(
+            Icons.Outlined.Palette, p.nome, if (marcado) "em uso" else "pacote de ícones",
+            fim = { if (marcado) Valor("✓") },
+        ) { acoes.estiloIcones("pack:" + p.pacote) }
+    }
+    LinhaMenu(
+        Icons.Outlined.Download, "Baixar pacotes de ícones",
+        if (estado.pacotesIcones.isEmpty()) "nenhum instalado; a Play Store tem muitos (padrão Nova/ADW)" else "mais na Play Store",
+        fim = { Seta() }, aoTocar = acoes.baixarPacotes,
+    )
+
     SecaoMenu("Cores")
     Text(
         "As cores do WolfLauncher (relógio, traços, busca, player, aurora). À noite fica lilás.",
@@ -271,8 +303,6 @@ private fun PaginaPrincipal(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (
     ) { acoes.fundoAnimado(!estado.fundoAnimado) }
 
     SecaoMenu("Tela inicial")
-    LinhaMenu(Icons.Outlined.Apps, "Ícones da lista", if (estado.iconesLinha) "em linha: brancos e finos" else "coloridos")
-    Pilulas(listOf("Coloridos", "Em linha"), if (estado.iconesLinha) 1 else 0) { acoes.iconesLinha(it == 1) }
     LinhaMenu(
         Icons.Outlined.PushPin, "Favoritos",
         if (estado.favoritos.isEmpty()) "nenhum fixado: o painel mostra os mais usados" else "${estado.favoritos.size} fixado(s) no painel",
@@ -438,7 +468,7 @@ private fun PaginaEscondidos(estado: EstadoAjustes, acoes: AcoesAjustes, voltar:
 @Composable
 private fun PaginaGestos(voltar: () -> Unit) {
     Cabecalho("Gestos", voltar)
-    LinhaMenu(Icons.Outlined.KeyboardArrowUp, "Deslizar para cima", "todos os apps, por letra")
+    LinhaMenu(Icons.Outlined.KeyboardArrowUp, "Deslizar para cima", "o buscador: apps, conversas, pessoas, contas, ajustes e a web")
     LinhaMenu(Icons.Outlined.KeyboardArrowDown, "Deslizar para baixo", "a cortina de notificações")
     LinhaMenu(Icons.Outlined.SwipeRight, "Deslizar para a direita", "seu dia: antes, agora e depois")
     LinhaMenu(Icons.Outlined.SwipeLeft, "Deslizar para a esquerda", "o painel de widgets")

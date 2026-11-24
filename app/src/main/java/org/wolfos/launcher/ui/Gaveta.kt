@@ -83,6 +83,8 @@ fun Gaveta(
     contatos: List<Contato> = emptyList(),
     aoLigar: (Contato) -> Unit = {},
     aoMensagem: (Contato) -> Unit = {},
+    /** Abrir ja com o teclado (o "Todos os apps" do buscador abre sem). */
+    autoFoco: Boolean = true,
 ) {
     val estado = rememberLazyListState()
     val escopo = rememberCoroutineScope()
@@ -103,7 +105,7 @@ fun Gaveta(
     val pessoas = remember(busca, contatos) { if (busca.isBlank()) emptyList() else Contatos.filtrar(contatos, busca).take(3) }
 
     Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-        CampoBusca(busca, aoBuscar) {
+        CampoBuscaLinha(busca, aoBuscar, dica = "Buscar apps", autoFoco = autoFoco) {
             // Enter: o primeiro app; sem app, a primeira acao; sem nada, a web
             when {
                 lista.isNotEmpty() -> acoes.abrir(lista.first())
@@ -197,66 +199,6 @@ private fun Recentes(apps: List<AppInfo>, acoes: AcoesApp) {
                 }
             }
         }
-    }
-}
-
-/**
- * O campo de busca da lista de apps: uma linha fina (sem caixa), a lupa na cor da
- * paleta e o texto grande. Ja abre com o teclado (deslizar para cima e escrever).
- */
-@Composable
-private fun CampoBusca(texto: String, aoMudar: (String) -> Unit, aoEnviar: () -> Unit) {
-    val cor = MaterialTheme.colorScheme.primary
-    val foco = remember { androidx.compose.ui.focus.FocusRequester() }
-    var focado by remember { mutableStateOf(false) }
-    androidx.compose.runtime.LaunchedEffect(Unit) { runCatching { foco.requestFocus() } }
-    val linha by androidx.compose.animation.core.animateFloatAsState(if (focado) 1f else 0.35f, label = "linha")
-    Column(Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp, top = 14.dp, bottom = 6.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            androidx.compose.material3.Icon(
-                androidx.compose.material.icons.Icons.Outlined.Search, contentDescription = null, tint = cor,
-                modifier = Modifier.size(22.dp),
-            )
-            androidx.compose.foundation.text.BasicTextField(
-                value = texto,
-                onValueChange = aoMudar,
-                singleLine = true,
-                textStyle = androidx.compose.ui.text.TextStyle(color = Texto, fontSize = 19.sp, fontWeight = FontWeight.Light),
-                cursorBrush = androidx.compose.ui.graphics.SolidColor(cor),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                keyboardActions = KeyboardActions(onGo = { aoEnviar() }),
-                decorationBox = { campo ->
-                    Box(contentAlignment = Alignment.CenterStart) {
-                        if (texto.isEmpty()) Text("Buscar apps, contas, ajustes…", color = TextoFraco, fontSize = 19.sp, fontWeight = FontWeight.Light)
-                        campo()
-                    }
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 14.dp, vertical = 10.dp)
-                    .focusRequester(foco)
-                    .onFocusChanged { focado = it.isFocused },
-            )
-            if (texto.isNotEmpty()) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.size(36.dp).clip(CircleShape).clickable { aoMudar("") },
-                ) {
-                    androidx.compose.material3.Icon(
-                        androidx.compose.material.icons.Icons.Outlined.Close, contentDescription = "Limpar", tint = TextoFraco,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
-            }
-        }
-        // a linha embaixo: o degrade da paleta, mais forte com o teclado aberto
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(1.5.dp)
-                .graphicsLayer { alpha = linha }
-                .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(cor, MaterialTheme.colorScheme.secondary, androidx.compose.ui.graphics.Color.Transparent))),
-        )
     }
 }
 

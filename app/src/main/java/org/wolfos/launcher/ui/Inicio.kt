@@ -278,7 +278,7 @@ fun Inicio(
                 LinhaMenu(Icons.Outlined.Wallpaper, "Papel de parede", "a cor de destaque acompanha", fim = { Seta() }) {
                     fechar(); acoes.papelDeParede()
                 }
-                LinhaMenu(Icons.Outlined.Apps, "Todos os apps", "também deslizando para cima", fim = { Seta() }) {
+                LinhaMenu(Icons.Outlined.Apps, "Buscar e todos os apps", "também deslizando para cima", fim = { Seta() }) {
                     fechar(); acoes.abrirGaveta()
                 }
                 LinhaMenu(Icons.Outlined.Today, "Seu dia", "também deslizando para a direita", fim = { Seta() }) {

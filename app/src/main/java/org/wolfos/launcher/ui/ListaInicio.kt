@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -80,18 +81,40 @@ fun ListaInicio(
     /** O pacote que esta tocando musica agora (ganha as barrinhas). */
     tocando: String?,
     acoes: AcoesApp,
-    /** Icones em linha (brancos, finos) em vez de coloridos. */
-    iconesLinha: Boolean = false,
+    /** Muda a cada toque no Home: a lista volta para os favoritos. */
+    reinicio: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     var letra by remember { mutableStateOf<String?>(null) }
-    var mexeu by remember { mutableStateOf(0) }
-    // parado numa letra por um tempo: volta sozinho para os favoritos
-    LaunchedEffect(letra, mexeu) {
-        if (letra != null) {
-            delay(9000)
+    var noTrilho by remember { mutableStateOf(false) }
+    // a contagem para voltar: so anda com o dedo fora do alfabeto
+    val volta = remember { androidx.compose.animation.core.Animatable(1f) }
+    LaunchedEffect(letra, noTrilho) {
+        if (letra != null && !noTrilho) {
+            volta.snapTo(1f)
+            volta.animateTo(0f, tween(VOLTA_MS, easing = LinearEasing))
             letra = null
+        } else {
+            volta.snapTo(1f)
         }
+    }
+    LaunchedEffect(reinicio) { letra = null }
+    // o voltar do Android tambem volta para os favoritos
+    androidx.activity.compose.BackHandler(enabled = letra != null) { letra = null }
+    // tocar num app da letra abre e ja deixa a lista pronta nos favoritos
+    val acoesLista = remember(acoes) {
+        AcoesApp(
+            abrir = { a -> letra = null; acoes.abrir(a) },
+            informacoes = acoes.informacoes,
+            desinstalar = acoes.desinstalar,
+            renomear = acoes.renomear,
+            esconder = acoes.esconder,
+            abrirAtalho = acoes.abrirAtalho,
+            ehFavorito = acoes.ehFavorito,
+            alternarFavorito = acoes.alternarFavorito,
+            avisosDe = acoes.avisosDe,
+            acoesAviso = acoes.acoesAviso,
+        )
     }
     val letras = remember(todos) { todos.map { it.letra }.distinct() }
 
@@ -109,14 +132,23 @@ fun ListaInicio(
             else todos.filter { it.letra == l }.map { it to false }
             Column(Modifier.fillMaxSize()) {
                 if (l != null) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 6.dp, bottom = 4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 6.dp)) {
                         Text(l, fontSize = 30.sp, fontWeight = FontWeight.Bold, style = TextStyle(brush = degrade(), shadow = SombraTexto))
                         Text("  ${itens.size} app(s)", color = TextoFraco, fontSize = 13.sp, modifier = Modifier.weight(1f))
                         Box(
                             contentAlignment = Alignment.Center,
-                            modifier = Modifier.size(36.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.25f)).clickable { letra = null },
-                        ) { Icon(Icons.Outlined.Close, contentDescription = "Voltar aos favoritos", tint = Texto, modifier = Modifier.size(18.dp)) }
+                            modifier = Modifier.size(36.dp).clip(CircleShape).clickable { letra = null },
+                        ) { Icon(Icons.Outlined.Close, contentDescription = "Voltar aos favoritos", tint = Texto, modifier = Modifier.size(20.dp)) }
                     }
+                    // a linha fina que encolhe: quanto falta para voltar aos favoritos
+                    Box(
+                        Modifier
+                            .padding(start = 8.dp, end = 12.dp, top = 2.dp, bottom = 6.dp)
+                            .fillMaxWidth(volta.value.coerceIn(0f, 1f))
+                            .height(2.dp)
+                            .clip(CircleShape)
+                            .background(degradeH()),
+                    )
                 }
                 LazyColumn(Modifier.fillMaxSize()) {
                     itemsIndexed(itens, key = { _, (a, s) -> a.chave + s }) { i, (app, sugerido) ->
@@ -127,8 +159,7 @@ fun ListaInicio(
                                 ultima = ultimas[app.pacote],
                                 sugerido = sugerido,
                                 tocando = app.pacote == tocando,
-                                iconesLinha = iconesLinha,
-                                acoes = acoes,
+                                acoes = acoesLista,
                             )
                         }
                     }
@@ -137,17 +168,20 @@ fun ListaInicio(
         }
         AlfabetoLateral(
             letras = letras,
-            aoEscolher = { l -> letra = l; mexeu++ },
-            aoSoltar = { mexeu++ },
+            aoEscolher = { l -> noTrilho = true; letra = l },
+            aoSoltar = { noTrilho = false },
             modifier = Modifier.padding(vertical = 4.dp),
         )
     }
 }
 
+/** Quanto tempo a lista de uma letra fica depois de soltar o dedo do alfabeto. */
+private const val VOLTA_MS = 3500
+
 /** Uma linha da lista: icone, nome, a ultima mensagem embaixo e o numero de notificacoes. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun LinhaInicio(app: AppInfo, avisos: Int, ultima: String?, sugerido: Boolean, tocando: Boolean, iconesLinha: Boolean, acoes: AcoesApp) {
+private fun LinhaInicio(app: AppInfo, avisos: Int, ultima: String?, sugerido: Boolean, tocando: Boolean, acoes: AcoesApp) {
     val cor = MaterialTheme.colorScheme.primary
     var menu by remember(app.chave) { mutableStateOf(false) }
     val toque = remember { MutableInteractionSource() }
@@ -165,7 +199,7 @@ private fun LinhaInicio(app: AppInfo, avisos: Int, ultima: String?, sugerido: Bo
                 .padding(horizontal = 6.dp, vertical = 7.dp),
         ) {
             Box {
-                IconeApp(app, if (iconesLinha) 30.dp else 34.dp, mono = iconesLinha)
+                IconeApp(app, 32.dp)
                 if (avisos > 0) Selo(avisos, Modifier.align(Alignment.TopEnd).padding(start = 0.dp).size(17.dp).graphicsLayer { translationX = 8.dp.toPx(); translationY = (-6).dp.toPx() })
             }
             Column(Modifier.weight(1f).padding(start = 16.dp)) {

@@ -70,7 +70,9 @@ import org.wolfos.launcher.ui.EstadoAjustes
 import org.wolfos.launcher.ui.PaginasAjustes
 import org.wolfos.launcher.ui.AcoesAviso
 import org.wolfos.launcher.ui.AcoesDia
+import org.wolfos.launcher.ui.AcoesBusca
 import org.wolfos.launcher.ui.AcoesMusica
+import org.wolfos.launcher.ui.BuscaTela
 import org.wolfos.launcher.ui.ListaInicio
 import org.wolfos.launcher.dados.Favoritos
 import org.wolfos.launcher.dados.Sugestoes
@@ -354,8 +356,9 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         acoesAviso = acoesAviso,
     )
     val acoesInicio = AcoesInicio(
-        abrirComando = { texto -> busca = texto; tela = Telas.GAVETA },
-        abrirGaveta = { tela = Telas.GAVETA },
+        // deslizar para cima: o buscador universal, ja com o teclado
+        abrirComando = { texto -> comando = texto; tela = Telas.COMANDO },
+        abrirGaveta = { comando = ""; tela = Telas.COMANDO },
         abrirNotificacoes = { Apps.abrirNotificacoes(contexto) },
         abrirAjustes = { paginaAjustes = PaginasAjustes.PRINCIPAL; tela = Telas.AJUSTES },
         abrirWidgets = { tela = Telas.WIDGETS },
@@ -395,7 +398,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         entrarEvento = { Agenda.entrar(contexto, it) },
         abrirAlarmes = abrirAlarmes,
         permitirAgenda = { pedidoAgenda.launch(Manifest.permission.READ_CALENDAR) },
-        buscar = { busca = ""; tela = Telas.GAVETA },
+        buscar = { comando = ""; tela = Telas.COMANDO },
         voltar = voltarAoInicio,
     )
     val acoesPessoa = AcoesPessoa(
@@ -477,7 +480,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                             ultimas = ultimas,
                             tocando = musica?.pacote?.takeIf { musica?.tocando == true },
                             acoes = acoesApp,
-                            iconesLinha = vm.iconesLinha.collectAsStateWithLifecycle().value,
+                            reinicio = home,
                         )
                     },
                     clima = clima,
@@ -562,17 +565,34 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         contatos = contatos,
                         aoLigar = { if (Contatos.ligar(contexto, it)) voltarAoInicio() },
                         aoMensagem = { if (Contatos.mensagem(contexto, it)) voltarAoInicio() },
+                        // vindo do buscador ("Todos os apps"), abre para olhar, sem teclado
+                        autoFoco = false,
                     )
                 }
-                atual == Telas.COMANDO -> Comando(
-                    apps = apps,
-                    contatos = contatos,
-                    temContatos = temContatos,
-                    texto = comando,
-                    aoMudar = { comando = it },
-                    acoesApp = acoesApp,
-                    acoes = acoesComando,
-                )
+                atual == Telas.COMANDO -> {
+                    val porChave = remember(apps) { apps.associateBy { it.chave } }
+                    val recentes = remember(usoMudou, apps) {
+                        vm.uso.hoje().asReversed().mapNotNull { porChave[it.chave] }.distinct().take(5)
+                    }
+                    BuscaTela(
+                        texto = comando,
+                        aoMudar = { comando = it },
+                        apps = apps,
+                        recentes = recentes.ifEmpty { favoritosApps.take(5) },
+                        conversas = daMatilha.ifEmpty { conversasComNome },
+                        contatos = contatos,
+                        acoesApp = acoesApp,
+                        acoes = AcoesBusca(
+                            abrirConversa = acoesConversa.abrir,
+                            ligar = { if (Contatos.ligar(contexto, it)) voltarAoInicio() },
+                            mensagem = { if (Contatos.mensagem(contexto, it)) voltarAoInicio() },
+                            executar = { a -> a.executar(contexto); voltarAoInicio() },
+                            web = { Apps.buscarNaWeb(contexto, it); voltarAoInicio() },
+                            ajustes = { comando = ""; paginaAjustes = PaginasAjustes.PRINCIPAL; tela = Telas.AJUSTES },
+                            todosApps = { busca = ""; tela = Telas.GAVETA },
+                        ),
+                    )
+                }
                 atual == Telas.AJUSTES -> AjustesTela(
                     EstadoAjustes(
                         atualizacao = atualizacao,
@@ -594,7 +614,8 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         compromissos = mostrarCompromissos,
                         fundoAnimado = fundoAnimado,
                         estiloRelogio = estiloRelogio,
-                        iconesLinha = vm.iconesLinha.collectAsStateWithLifecycle().value,
+                        estiloIcones = vm.estiloIcones.collectAsStateWithLifecycle().value,
+                        pacotesIcones = vm.pacotesIcones.collectAsStateWithLifecycle().value,
                         paleta = vm.paleta.collectAsStateWithLifecycle().value,
                         ritmo = ritmo,
                         modoNoite = modoNoite,
@@ -631,7 +652,11 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         compromissos = vm::definirCompromissos,
                         fundoAnimado = vm::definirFundoAnimado,
                         estiloRelogio = vm::definirEstiloRelogio,
-                        iconesLinha = vm::definirIconesLinha,
+                        estiloIcones = vm::definirEstiloIcones,
+                        baixarPacotes = {
+                            Apps.abrirTela(contexto, Intent(Intent.ACTION_VIEW, Uri.parse("market://search?q=icon%20pack")))
+                                || Apps.abrirTela(contexto, Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/search?q=icon%20pack&c=apps")))
+                        },
                         paleta = vm::definirPaleta,
                         ritmo = vm::definirRitmo,
                         modoNoite = vm::definirModoNoite,

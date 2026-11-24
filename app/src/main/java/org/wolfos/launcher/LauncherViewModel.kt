@@ -44,6 +44,7 @@ import org.wolfos.launcher.dados.Icones
 import org.wolfos.launcher.dados.Matilha
 import org.wolfos.launcher.dados.Cidade
 import org.wolfos.launcher.dados.Padrao
+import org.wolfos.launcher.dados.PacoteIcones
 import org.wolfos.launcher.ui.EstiloRelogio
 import org.wolfos.launcher.ui.Paleta
 import org.wolfos.launcher.dados.Previsao
@@ -239,12 +240,26 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         _fundoAnimado.value = v
     }
 
-    private val _iconesLinha = MutableStateFlow(preferencias.iconesLinha)
-    val iconesLinha: StateFlow<Boolean> = _iconesLinha.asStateFlow()
+    // ---- o estilo dos icones (vale para o launcher inteiro) e os pacotes instalados
+    private val _estiloIcones = MutableStateFlow(preferencias.estiloIcones.also { Icones.definirEstilo(it) })
+    val estiloIcones: StateFlow<String> = _estiloIcones.asStateFlow()
 
-    fun definirIconesLinha(v: Boolean) {
-        preferencias.iconesLinha = v
-        _iconesLinha.value = v
+    private val _pacotesIcones = MutableStateFlow<List<PacoteIcones>>(emptyList())
+    val pacotesIcones: StateFlow<List<PacoteIcones>> = _pacotesIcones.asStateFlow()
+
+    fun carregarPacotesIcones() {
+        viewModelScope.launch {
+            _pacotesIcones.value = withContext(Dispatchers.IO) { Icones.pacotesInstalados(getApplication()) }
+            // o pacote escolhido foi desinstalado: volta para os icones dos apps
+            val e = _estiloIcones.value
+            if (e.startsWith("pack:") && _pacotesIcones.value.none { "pack:" + it.pacote == e }) definirEstiloIcones("ORIGINAL")
+        }
+    }
+
+    fun definirEstiloIcones(e: String) {
+        preferencias.estiloIcones = e
+        Icones.definirEstilo(e)
+        _estiloIcones.value = e
     }
 
     private val _paleta = MutableStateFlow(Paleta.entries.firstOrNull { it.name == preferencias.paleta } ?: Paleta.LOBO)
@@ -475,6 +490,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         // a agenda pode ter mudado (ou a permissao chegado) enquanto estava fora
         carregarContatos()
         carregarConversas()
+        carregarPacotesIcones()
         carregarDia()
         atualizarTempo()
         _usoConversas.value = usoConversasArq.ler()

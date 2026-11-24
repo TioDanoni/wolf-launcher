@@ -33,14 +33,22 @@ import org.wolfos.launcher.dados.Icones
 
 /** O icone do app, carregado so quando aparece (ate la, um circulo discreto). */
 @Composable
-fun IconeApp(app: AppInfo, tamanho: Dp, modifier: Modifier = Modifier, mono: Boolean = false) {
+fun IconeApp(app: AppInfo, tamanho: Dp, modifier: Modifier = Modifier) {
     val contexto = LocalContext.current
-    val icone by produceState(if (mono) Icones.monoDaMemoria(app) else Icones.daMemoria(app), app.chave, mono) {
-        if (value == null) value = if (mono) Icones.carregarMono(contexto, app) else Icones.carregar(contexto, app)
+    // a versao muda quando o estilo dos icones muda: o icone e carregado de novo
+    val versao = Icones.versao.intValue
+    val icone by produceState(Icones.daMemoria(app), app.chave, versao) {
+        if (value == null) value = Icones.carregar(contexto, app)
     }
     val m = modifier.size(tamanho)
-    icone?.let { Image(it, contentDescription = null, modifier = m) }
-        ?: Box(m.clip(CircleShape).background(Superficie))
+    icone?.let {
+        Image(
+            it,
+            contentDescription = null,
+            modifier = m,
+            colorFilter = if (Icones.tingir(app)) androidx.compose.ui.graphics.ColorFilter.tint(MaterialTheme.colorScheme.primary) else null,
+        )
+    } ?: Box(m.clip(CircleShape).background(Texto.copy(alpha = 0.06f)))
 }
 
 /** Titulo pequeno de secao, em maiusculas e espacado ("PARA AGORA", "APPS"). */

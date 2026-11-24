@@ -41,10 +41,13 @@ class Preferencias(contexto: Context) {
         get() = prefs.getString("estilo_relogio", "VERTICAL") ?: "VERTICAL"
         set(v) = prefs.edit().putString("estilo_relogio", v).apply()
 
-    /** Os icones da lista da tela inicial em linha (brancos, finos) em vez de coloridos. */
-    var iconesLinha: Boolean
-        get() = prefs.getBoolean("icones_linha", false)
-        set(v) = prefs.edit().putBoolean("icones_linha", v).apply()
+    /**
+     * O estilo dos icones (ORIGINAL, LINHA, PALETA, CINZA ou "pack:<pacote>"). Quem tinha
+     * ligado os icones em linha (0.18) continua com eles.
+     */
+    var estiloIcones: String
+        get() = prefs.getString("estilo_icones", null) ?: if (prefs.getBoolean("icones_linha", false)) "LINHA" else "ORIGINAL"
+        set(v) = prefs.edit().putString("estilo_icones", v).apply()
 
     /** A fileira da Matilha na tela inicial. */
     var mostrarMatilha: Boolean
