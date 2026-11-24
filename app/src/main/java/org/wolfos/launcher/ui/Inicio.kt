@@ -77,6 +77,7 @@ class AcoesInicio(
     val atualizar: () -> Unit,
     val definirPadrao: () -> Unit,
     val abrirApp: (AppInfo) -> Unit,
+    val abrirDia: () -> Unit,
 )
 
 /** O que esta esperando num verbo: a ultima notificacao e quantas tem. */
@@ -98,6 +99,9 @@ fun Inicio(
     atualizacao: EstadoAtualizacao,
     ehPadrao: Boolean,
     previas: Map<Verbo, Previa>,
+    /** O proximo compromisso (de dia) ou o despertador (a noite). */
+    faixaAgora: FaixaInfo?,
+    noite: Boolean,
     acoes: AcoesInicio,
     /** A fileira da Matilha (ou nada), logo acima da barra de comando. */
     matilha: @Composable () -> Unit,
@@ -111,6 +115,7 @@ fun Inicio(
                 when (direcao(dx, dy)) {
                     -1 -> acoes.abrirGaveta()
                     1 -> acoes.abrirNotificacoes()
+                    else -> if (dx > 0) acoes.abrirDia()
                 }
             },
             aoLetra = { letras, fim -> leque = EstadoLeque(letras.first().toString(), letras.drop(1), fim) },
@@ -124,6 +129,10 @@ fun Inicio(
                 if (!ehPadrao) {
                     Spacer(Modifier.height(16.dp))
                     Faixa("⌂", "Usar o WolfLauncher como tela inicial", "Definir", acoes.definirPadrao)
+                }
+                faixaAgora?.let { f ->
+                    Spacer(Modifier.height(if (ehPadrao) 16.dp else 8.dp))
+                    Faixa(f.simbolo, f.texto, f.botao, f.acao)
                 }
                 textoAtualizacao(atualizacao)?.let { (simbolo, texto, botao) ->
                     Spacer(Modifier.height(if (ehPadrao) 16.dp else 8.dp))
@@ -146,7 +155,7 @@ fun Inicio(
                 Spacer(Modifier.height(12.dp))
                 BarraComandoFechada({ acoes.abrirComando("") })
                 Text(
-                    "desenhe uma letra  ·  ︿ todos os apps  ·  segure para ajustes",
+                    if (noite) "modo noite  ·  ︿ todos os apps  ·  → seu dia" else "desenhe uma letra  ·  ︿ todos os apps  ·  → seu dia",
                     color = TextoFraco.copy(alpha = 0.7f),
                     fontSize = 11.5.sp,
                     modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp, bottom = 4.dp),

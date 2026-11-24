@@ -92,6 +92,9 @@ fun Faixa(simbolo: String, texto: String, botao: String?, aoTocar: () -> Unit, m
     }
 }
 
+/** Uma faixa pronta: simbolo, texto, botao e o que o toque faz. */
+class FaixaInfo(val simbolo: String, val texto: String, val botao: String?, val acao: () -> Unit)
+
 /** Texto e botao do aviso de atualizacao, conforme o momento. Nulo: nada a mostrar. */
 fun textoAtualizacao(e: EstadoAtualizacao): Triple<String, String, String?>? = when (e) {
     EstadoAtualizacao.EmDia -> null

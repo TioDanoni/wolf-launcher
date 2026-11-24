@@ -19,6 +19,7 @@ import org.wolfos.launcher.avisos.Aviso
 import org.wolfos.launcher.avisos.Avisos
 import org.wolfos.launcher.atualizacao.EstadoAtualizacao
 import org.wolfos.launcher.atualizacao.TrabalhoAtualizacao
+import org.wolfos.launcher.dados.Agenda
 import org.wolfos.launcher.dados.AppInfo
 import org.wolfos.launcher.dados.Apps
 import org.wolfos.launcher.dados.Contato
@@ -27,7 +28,10 @@ import org.wolfos.launcher.dados.EscolhasVerbo
 import org.wolfos.launcher.dados.Icones
 import org.wolfos.launcher.dados.Matilha
 import org.wolfos.launcher.dados.Padrao
+import org.wolfos.launcher.dados.Evento
 import org.wolfos.launcher.dados.Preferencias
+import org.wolfos.launcher.dados.Ritmo
+import org.wolfos.launcher.dados.Uso
 import org.wolfos.launcher.dados.Verbo
 
 /** Estado do launcher: os apps (lidos fora da tela), as escolhas de verbo e a atualizacao. */
@@ -40,6 +44,34 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _escolhas = MutableStateFlow(escolhasArq.ler())
     val escolhas: StateFlow<Map<String, String>> = _escolhas.asStateFlow()
+
+    /** O que a pessoa abre e a que horas (so no celular). */
+    val uso = Uso(app)
+
+    private val _ritmo = MutableStateFlow(preferencias.ritmo)
+    val ritmo: StateFlow<Boolean> = _ritmo.asStateFlow()
+
+    private val _modoNoite = MutableStateFlow(preferencias.modoNoite)
+    val modoNoite: StateFlow<Boolean> = _modoNoite.asStateFlow()
+
+    private val _janelaNoite = MutableStateFlow(preferencias.noiteInicio to preferencias.noiteFim)
+    val janelaNoite: StateFlow<Pair<Int, Int>> = _janelaNoite.asStateFlow()
+
+    private val _fone = MutableStateFlow(false)
+    val fone: StateFlow<Boolean> = _fone.asStateFlow()
+
+    private val _eventos = MutableStateFlow<List<Evento>>(emptyList())
+    val eventos: StateFlow<List<Evento>> = _eventos.asStateFlow()
+
+    private val _temAgenda = MutableStateFlow(Agenda.temPermissao(app))
+    val temAgenda: StateFlow<Boolean> = _temAgenda.asStateFlow()
+
+    private val _alarme = MutableStateFlow<Long?>(null)
+    val alarme: StateFlow<Long?> = _alarme.asStateFlow()
+
+    /** Conta quantas vezes o uso mudou (para os verbos reordenarem). */
+    private val _usoMudou = MutableStateFlow(0)
+    val usoMudou: StateFlow<Int> = _usoMudou.asStateFlow()
 
     private val _mostrarMatilha = MutableStateFlow(preferencias.mostrarMatilha)
     val mostrarMatilha: StateFlow<Boolean> = _mostrarMatilha.asStateFlow()
@@ -109,6 +141,38 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** O fone, a agenda e o despertador: o que muda o "agora". */
+    fun carregarDia() {
+        val contexto = getApplication<Application>()
+        _fone.value = Ritmo.foneConectado(contexto)
+        _alarme.value = Ritmo.proximoAlarme(contexto)?.first
+        _temAgenda.value = Agenda.temPermissao(contexto)
+        if (_temAgenda.value) viewModelScope.launch {
+            _eventos.value = withContext(Dispatchers.IO) { Agenda.proximos(contexto) }
+        }
+    }
+
+    fun registrarAbertura(app: AppInfo) {
+        uso.registrar(app, org.wolfos.launcher.dados.verboDe(app, _escolhas.value))
+        _usoMudou.value++
+    }
+
+    fun definirRitmo(valor: Boolean) {
+        preferencias.ritmo = valor
+        _ritmo.value = valor
+    }
+
+    fun definirModoNoite(valor: Boolean) {
+        preferencias.modoNoite = valor
+        _modoNoite.value = valor
+    }
+
+    fun definirJanelaNoite(inicio: Int, fim: Int) {
+        preferencias.noiteInicio = inicio
+        preferencias.noiteFim = fim
+        _janelaNoite.value = inicio to fim
+    }
+
     fun adicionarNaMatilha(id: Long) {
         val atual = _matilha.value.ifEmpty { Matilha.pessoas(_contatos.value, emptyList()).map { it.id } }
         if (id in atual || atual.size >= Matilha.MAXIMO) return
@@ -136,6 +200,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         _avisosPermitidos.value = Avisos.permitido(getApplication())
         // a agenda pode ter mudado (ou a permissao chegado) enquanto estava fora
         carregarContatos()
+        carregarDia()
         viewModelScope.launch {
             Atualizador.aoVoltar(getApplication())
             val passou = System.currentTimeMillis() - preferencias.ultimaVerificacao

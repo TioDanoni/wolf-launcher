@@ -25,14 +25,26 @@ Kotlin + Jetpack Compose. Pacote `org.wolfos.launcher`, Android 8.0 (API 26) ou 
   Android ("wi-fi", "bluetooth", "brilho"…); também busca na web.
 - **Tela inicial do Android:** na primeira vez pede para ser a tela inicial; enquanto não
   for, a faixa do agora mostra "Usar o WolfLauncher como tela inicial".
+- **Matilha:** as pessoas no polegar (escolhidas pelo +, ou os favoritos da agenda), com
+  anel quando estão esperando resposta; tocar abre ligar, mensagem, WhatsApp e a conversa.
+- **Notificações nos verbos** (com permissão): o verbo mostra a última mensagem e quantas
+  tem; dentro dele, "quem está esperando", com abrir e dispensar.
+- **Seu dia** (deslizar para a direita): o que passou hoje, o agora (com os apps que você
+  costuma abrir nessa hora) e o que vem (agenda, com "Entrar" nas reuniões, e despertador).
+- **Ritmo do dia:** os verbos mudam de ordem com a hora, com o fone conectado e com o
+  costume de cada hora. A faixa do agora mostra o próximo compromisso.
+- **Modo noite** (22:30–07:00, ajustável): cor lilás, só Ouvir, Ver e Conversar, e o
+  despertador no topo.
 - **Gestos:** para cima, todos os apps (por letra, com a barra de letras); para baixo, a
-  cortina de notificações; segurar num espaço vazio, o menu do launcher.
+  cortina de notificações; para a direita, seu dia; segurar num espaço vazio, o menu.
 - **Atualização sozinha:** ver abaixo.
 
 ## Próximos passos
 
-1. A Matilha (as pessoas) e as prévias das notificações nos verbos.
-2. Seu dia (linha do tempo), verbos que mudam com a hora e o modo noite.
+- Responder mensagens direto da tela do verbo.
+- Painel de widgets (deslizar para a esquerda).
+- Tocar duas vezes para bloquear a tela.
+- Editar um verbo (renomear, ordem dos apps) e pacotes de ícones.
 
 ## Atualizações
 
@@ -73,11 +85,18 @@ app/src/main/java/org/wolfos/launcher/
   dados/Comandos.kt        o que a barra entende: timer, alarme, contas, lanterna, ajustes
   dados/Contatos.kt        a agenda (busca sem acento) e ligar/mensagem
   dados/Padrao.kt          ser a tela inicial do Android
+  dados/Matilha.kt         as pessoas da Matilha e quem está esperando
+  dados/Ritmo.kt           a ordem dos verbos pela hora, fone e costume; o modo noite
+  dados/Uso.kt             o que é aberto e a que horas (só no celular)
+  dados/Agenda.kt          os próximos compromissos
+  avisos/                  as notificações (serviço com a permissão da pessoa)
   atualizacao/             consultar o GitHub, baixar, instalar e o trabalho periódico
   ui/Inicio.kt             relógio, faixa do agora, verbos e barra de comando
   ui/Comando.kt            a barra de comando aberta
   ui/Desenho.kt            a área de desenhar letras e o leque
-  ui/VerboTela.kt          os apps de um verbo
+  ui/VerboTela.kt          quem está esperando e os apps de um verbo
+  ui/MatilhaUi.kt          a fileira da Matilha
+  ui/DiaTela.kt            seu dia: antes, agora e depois
   ui/Gaveta.kt             todos os apps por letra
   ui/AjustesTela.kt        ajustes e atualizações
   ui/Comum.kt, Tema.kt     peças repetidas, cores do WolfOS e a aurora

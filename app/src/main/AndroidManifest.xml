@@ -8,6 +8,8 @@
     <!-- Barra de comando: achar pessoas da agenda ("ligar mãe") e criar timer/alarme. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <!-- Seu dia e a faixa do agora: os proximos compromissos da agenda. -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
     <!-- Deslizar para baixo abre a cortina de notificacoes. -->
     <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
 

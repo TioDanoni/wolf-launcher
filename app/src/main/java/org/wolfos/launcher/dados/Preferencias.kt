@@ -16,6 +16,24 @@ class Preferencias(contexto: Context) {
         get() = prefs.getBoolean("mostrar_matilha", true)
         set(v) = prefs.edit().putBoolean("mostrar_matilha", v).apply()
 
+    /** Os verbos mudam de ordem com a hora (e com o fone conectado). */
+    var ritmo: Boolean
+        get() = prefs.getBoolean("ritmo", true)
+        set(v) = prefs.edit().putBoolean("ritmo", v).apply()
+
+    var modoNoite: Boolean
+        get() = prefs.getBoolean("modo_noite", true)
+        set(v) = prefs.edit().putBoolean("modo_noite", v).apply()
+
+    /** A janela do modo noite, em minutos do dia (22:30 = 1350). */
+    var noiteInicio: Int
+        get() = prefs.getInt("noite_inicio", 22 * 60 + 30)
+        set(v) = prefs.edit().putInt("noite_inicio", v).apply()
+
+    var noiteFim: Int
+        get() = prefs.getInt("noite_fim", 7 * 60)
+        set(v) = prefs.edit().putInt("noite_fim", v).apply()
+
     /** Ja pediu uma vez, sozinho, para ser a tela inicial (depois so pela faixa). */
     var jaPediuPadrao: Boolean
         get() = prefs.getBoolean("ja_pediu_padrao", false)

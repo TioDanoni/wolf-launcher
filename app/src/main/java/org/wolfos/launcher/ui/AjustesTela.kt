@@ -1,6 +1,9 @@
 package org.wolfos.launcher.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,6 +43,12 @@ fun AjustesTela(
     aoInformacoesDoLauncher: () -> Unit,
     mostrarMatilha: Boolean,
     aoMostrarMatilha: (Boolean) -> Unit,
+    ritmo: Boolean,
+    aoRitmo: (Boolean) -> Unit,
+    modoNoite: Boolean,
+    aoModoNoite: (Boolean) -> Unit,
+    janelaNoite: Pair<Int, Int>,
+    aoJanelaNoite: (Int, Int) -> Unit,
     aoFechar: () -> Unit,
 ) {
     var procurando by remember { mutableStateOf<String?>(null) }
@@ -58,6 +67,11 @@ fun AjustesTela(
                 aoTocar = aoInformacoesDoLauncher,
             )
         }
+
+        Grupo("Ritmo do dia")
+        Chave("Verbos mudam com a hora", "trabalho de tarde, música com o fone, e o que você mais abre em cada hora", ritmo, aoRitmo)
+        Chave("Modo noite", "cor calma e só os verbos da noite, com o despertador no topo", modoNoite, aoModoNoite)
+        if (modoNoite) JanelasNoite(janelaNoite, aoJanelaNoite)
 
         Grupo("Atualizações")
         textoAtualizacao(atualizacao)?.let { (simbolo, texto, botao) ->
@@ -122,5 +136,22 @@ private fun Chave(titulo: String, sub: String, ligado: Boolean, aoMudar: (Boolea
                 checkedThumbColor = Fundo,
             ),
         )
+    }
+}
+
+private val JANELAS = listOf(22 * 60 to 6 * 60, 22 * 60 + 30 to 7 * 60, 23 * 60 to 7 * 60 + 30, 0 to 8 * 60)
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun JanelasNoite(atual: Pair<Int, Int>, aoEscolher: (Int, Int) -> Unit) {
+    fun hhmm(m: Int) = "%02d:%02d".format(m / 60, m % 60)
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+    ) {
+        for ((inicio, fim) in JANELAS) {
+            Pilula("${hhmm(inicio)} – ${hhmm(fim)}", destaque = atual == inicio to fim) { aoEscolher(inicio, fim) }
+        }
     }
 }

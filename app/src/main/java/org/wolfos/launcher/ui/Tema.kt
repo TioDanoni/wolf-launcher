@@ -20,6 +20,9 @@ val Superficie = Color(0xFF14161E)
 val Texto = Color(0xFFECEEF3)
 val TextoFraco = Color(0x99ECEEF3)
 
+/** A cor do modo noite: mais calma que o laranja. */
+val Lilas = Color(0xFFB98CFF)
+
 /**
  * A cor de destaque: no Android 12 ou mais novo vem do wallpaper (como o Noctalia
  * faz no PC); antes disso, o laranja do WolfOS.
@@ -31,8 +34,8 @@ fun corDestaque(): Color {
 }
 
 @Composable
-fun WolfTema(conteudo: @Composable () -> Unit) {
-    val acento = corDestaque()
+fun WolfTema(noite: Boolean = false, conteudo: @Composable () -> Unit) {
+    val acento = if (noite) Lilas else corDestaque()
     MaterialTheme(
         colorScheme = darkColorScheme(
             primary = acento,
