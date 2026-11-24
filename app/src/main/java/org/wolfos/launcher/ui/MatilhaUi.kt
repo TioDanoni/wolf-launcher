@@ -1,5 +1,8 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Pets
+import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -352,7 +355,8 @@ private fun EscolherConversas(todas: List<Conversa>, fixadas: List<String>, aoAl
 @Composable
 private fun TituloMatilha() {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 6.dp, bottom = 10.dp)) {
-        Text("Matilha", color = Texto, fontSize = 15.sp, fontWeight = FontWeight.Medium, style = TextStyle(shadow = SombraTexto))
+        Icon(Icons.Outlined.Pets, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp).padding(end = 0.dp))
+        Text("Matilha", color = Texto, fontSize = 15.sp, fontWeight = FontWeight.Medium, style = TextStyle(shadow = SombraTexto), modifier = Modifier.padding(start = 8.dp))
         Box(Modifier.padding(start = 10.dp).width(26.dp).height(2.dp).clip(CircleShape).background(degradeH()))
     }
 }

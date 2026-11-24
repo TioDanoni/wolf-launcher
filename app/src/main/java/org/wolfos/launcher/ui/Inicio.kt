@@ -1,5 +1,6 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
@@ -169,6 +170,9 @@ fun Inicio(
     compromissos: (@Composable () -> Unit)? = null,
     /** O painel de apps (Agora e Favoritos), embaixo, perto do polegar. */
     painel: @Composable () -> Unit = {},
+    /** Quantas notificacoes ha e de quem e a ultima (o resumo ao lado da Matilha). */
+    avisosTotal: Int = 0,
+    ultimoAviso: String? = null,
     /** O player de musica (ou nada). */
     player: (@Composable () -> Unit)? = null,
     /** A fileira da Matilha (ou nada), logo acima da barra de comando. */
@@ -220,22 +224,22 @@ fun Inicio(
                     faixaAgora?.let { f -> FaixaLimpa(f.simbolo, f.texto, f.botao, f.acao) }
                     textoAtualizacao(atualizacao)?.let { (simbolo, texto, botao) -> FaixaLimpa(simbolo, texto, botao, acoes.atualizar) }
                 }
-                // o painel fica embaixo, perto do polegar; se nao couber, rola
-                Box(Modifier.weight(1f).fillMaxWidth().clipToBounds()) {
-                    Column(
-                        verticalArrangement = Arrangement.Bottom,
-                        modifier = Modifier.align(Alignment.BottomStart).verticalScroll(rememberScrollState()),
-                    ) { painel() }
-                }
-                Spacer(Modifier.height(18.dp))
+                // a busca em cima, logo depois do relogio e do clima
+                Box(Modifier.padding(top = 14.dp, end = 30.dp).entrada(4)) { BarraBusca(noite) { acoes.abrirComando("") } }
+                // a lista de apps (com o alfabeto na direita) ocupa o meio
+                Box(Modifier.weight(1f).fillMaxWidth().padding(top = 10.dp).clipToBounds()) { painel() }
                 if (player != null) {
+                    Spacer(Modifier.height(10.dp))
                     player()
-                    Spacer(Modifier.height(16.dp))
                 }
-                matilha()
-                Spacer(Modifier.height(14.dp))
-                BarraBusca(noite) { acoes.abrirComando("") }
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
+                // embaixo: a Matilha e, ao lado, o resumo das notificacoes
+                Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth()) {
+                    Box(Modifier.weight(1f)) { matilha() }
+                    Box(Modifier.padding(horizontal = 6.dp, vertical = 10.dp).size(width = 1.dp, height = 48.dp).background(Texto.copy(alpha = 0.2f)))
+                    ResumoAvisos(avisosTotal, ultimoAviso, acoes.abrirNotificacoes, Modifier.padding(bottom = 14.dp).widthIn(max = 132.dp))
+                }
+                Spacer(Modifier.height(6.dp))
             }
             }
 
@@ -374,7 +378,7 @@ private fun BarraBusca(noite: Boolean, aoTocar: () -> Unit) {
             .border(1.dp, Brush.horizontalGradient(listOf(cor.copy(alpha = 0.55f), MaterialTheme.colorScheme.secondary.copy(alpha = 0.25f))), RoundedCornerShape(20.dp))
             .clickable(onClick = aoTocar)
             .padding(horizontal = 16.dp)
-            .height(52.dp),
+            .height(46.dp),
     ) {
         Icon(Icons.Outlined.Search, contentDescription = null, tint = cor, modifier = Modifier.size(22.dp))
         Box(Modifier.padding(horizontal = 14.dp).width(1.dp).height(22.dp).background(Texto.copy(alpha = 0.2f)))

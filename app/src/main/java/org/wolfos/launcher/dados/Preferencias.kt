@@ -38,7 +38,7 @@ class Preferencias(contexto: Context) {
 
     /** O estilo do relogio (nome do enum EstiloRelogio). */
     var estiloRelogio: String
-        get() = prefs.getString("estilo_relogio", "UIVO") ?: "UIVO"
+        get() = prefs.getString("estilo_relogio", "VERTICAL") ?: "VERTICAL"
         set(v) = prefs.edit().putString("estilo_relogio", v).apply()
 
     /** A fileira da Matilha na tela inicial. */

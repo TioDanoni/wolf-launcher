@@ -1,6 +1,9 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.layout.AlignmentLine
 import androidx.compose.ui.layout.FirstBaseline
@@ -41,6 +44,7 @@ import java.util.Locale
 
 /** Os jeitos de mostrar a hora (a peca de mais impacto da tela inicial). */
 enum class EstiloRelogio(val titulo: String) {
+    VERTICAL("Vertical"),
     UIVO("Uivo"),
     MANUSCRITO("Manuscrito"),
     LUA("Lua"),
@@ -59,7 +63,7 @@ fun fonteDoEstilo(e: EstiloRelogio): FontFamily? = when (e) {
     EstiloRelogio.MANUSCRITO -> FonteManuscrito
     EstiloRelogio.LUA -> FonteLua
     EstiloRelogio.NEON -> FonteNeon
-    EstiloRelogio.CLASSICO -> null
+    EstiloRelogio.CLASSICO, EstiloRelogio.VERTICAL -> null
 }
 
 private val PT = Locale.forLanguageTag("pt-BR")
@@ -192,6 +196,29 @@ fun RelogioGrande(estilo: EstiloRelogio, modifier: Modifier = Modifier, escala: 
                 style = TextStyle(fontFamily = FonteNeon, fontSize = 18.sp, letterSpacing = 0.2.em, color = Texto, shadow = Shadow(segunda.copy(alpha = 0.7f), Offset.Zero, 18f)),
                 modifier = Modifier.padding(start = 6.dp, top = 12.dp),
             )
+        }
+
+        // a hora grande e fina, o dia da semana embaixo e a data com um traco na cor da paleta
+        EstiloRelogio.VERTICAL -> Column(modifier) {
+            Digitos(
+                momento.format(HHMM),
+                TextStyle(
+                    fontSize = 84.sp * e,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Light,
+                    lineHeight = 84.sp * e,
+                    brush = Brush.verticalGradient(0.55f to Texto, 1f to Texto.copy(alpha = 0.82f)),
+                    shadow = SombraTexto,
+                ),
+            )
+            Text(
+                semana,
+                style = TextStyle(fontSize = 28.sp * e, color = Texto, shadow = SombraTexto),
+                modifier = Modifier.padding(start = 4.dp),
+            )
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp, top = 6.dp)) {
+                Box(Modifier.size(width = 3.dp, height = 18.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Brush.verticalGradient(listOf(primaria, segunda))))
+                Text(data, color = Texto.copy(alpha = 0.75f), fontSize = 16.sp, style = TextStyle(shadow = SombraTexto), modifier = Modifier.padding(start = 10.dp))
+            }
         }
 
         EstiloRelogio.CLASSICO -> Unit

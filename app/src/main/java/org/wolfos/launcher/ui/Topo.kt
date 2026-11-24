@@ -122,25 +122,24 @@ fun TempoAgora(p: Previsao, unidade: String, aoTocar: () -> Unit, modifier: Modi
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier.clip(RoundedCornerShape(16.dp)).clickable(onClick = aoTocar).padding(vertical = 4.dp, horizontal = 4.dp),
     ) {
-        IconeTempo(p.codigo, p.dia, 30.dp)
+        IconeTempo(p.codigo, p.dia, 28.dp)
         Text(
             "${p.graus}$unidade",
-            color = Texto, fontSize = 28.sp, fontWeight = FontWeight.Light,
+            color = Texto, fontSize = 26.sp, fontWeight = FontWeight.Light,
             style = TextStyle(shadow = SombraTexto),
             modifier = Modifier.padding(start = 10.dp),
         )
-        Column(Modifier.padding(start = 12.dp)) {
-            Text(
-                Tempo.descricao(p.codigo) + " · " + p.cidade,
-                color = Texto.copy(alpha = 0.9f), fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                style = TextStyle(shadow = SombraTexto),
-            )
-            Text(
-                "máx ${p.maxima}$unidade · mín ${p.minima}$unidade" + if (p.chuva >= 20) " · chuva ${p.chuva}%" else "",
-                color = Texto.copy(alpha = 0.6f), fontSize = 12.5.sp, maxLines = 1,
-                style = TextStyle(shadow = SombraTexto),
-            )
-        }
+        Box(Modifier.padding(horizontal = 12.dp).size(width = 1.dp, height = 20.dp).background(Texto.copy(alpha = 0.35f)))
+        Text(
+            Tempo.descricao(p.codigo),
+            color = Texto.copy(alpha = 0.9f), fontSize = 14.sp, maxLines = 1,
+            style = TextStyle(shadow = SombraTexto),
+        )
+        Text(
+            "  ·  ${p.maxima}°/${p.minima}°" + if (p.chuva >= 30) "  ·  chuva ${p.chuva}%" else "",
+            color = Texto.copy(alpha = 0.55f), fontSize = 12.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            style = TextStyle(shadow = SombraTexto),
+        )
     }
 }
 

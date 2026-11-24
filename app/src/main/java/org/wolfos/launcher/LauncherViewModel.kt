@@ -242,7 +242,17 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     private val _paleta = MutableStateFlow(Paleta.entries.firstOrNull { it.name == preferencias.paleta } ?: Paleta.LOBO)
     val paleta: StateFlow<Paleta> = _paleta.asStateFlow()
 
-    private val _estiloRelogio = MutableStateFlow(EstiloRelogio.entries.firstOrNull { it.name == preferencias.estiloRelogio } ?: EstiloRelogio.UIVO)
+    private val _estiloRelogio = MutableStateFlow(
+        run {
+            // o layout novo da tela inicial (0.17) usa o relogio Vertical: aplica uma vez
+            val p = app.getSharedPreferences("ajustes", android.content.Context.MODE_PRIVATE)
+            if (!p.getBoolean("layout_017", false)) {
+                p.edit().putBoolean("layout_017", true).apply()
+                preferencias.estiloRelogio = EstiloRelogio.VERTICAL.name
+            }
+            EstiloRelogio.entries.firstOrNull { it.name == preferencias.estiloRelogio } ?: EstiloRelogio.VERTICAL
+        },
+    )
     val estiloRelogio: StateFlow<EstiloRelogio> = _estiloRelogio.asStateFlow()
 
     fun definirEstiloRelogio(e: EstiloRelogio) {

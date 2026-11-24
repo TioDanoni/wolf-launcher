@@ -71,7 +71,7 @@ import org.wolfos.launcher.ui.PaginasAjustes
 import org.wolfos.launcher.ui.AcoesAviso
 import org.wolfos.launcher.ui.AcoesDia
 import org.wolfos.launcher.ui.AcoesMusica
-import org.wolfos.launcher.ui.PainelApps
+import org.wolfos.launcher.ui.ListaInicio
 import org.wolfos.launcher.dados.Favoritos
 import org.wolfos.launcher.dados.Sugestoes
 import org.wolfos.launcher.ui.DiaTela
@@ -306,10 +306,22 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         favoritosChaves.mapNotNull { porChaveApp[it] }.ifEmpty { Sugestoes.favoritosPadrao(apps, notasUso) }
     }
     val avisosPorPacote = remember(avisos) { avisos.groupingBy { it.pacote }.eachCount() }
+    // a lista da tela inicial: os favoritos e, completando ate 9, os sugeridos para agora
     val agoraApps = remember(apps, notasUso, avisosPorPacote, musica?.pacote, favoritosApps, ritmo) {
         if (!ritmo) emptyList()
-        else Sugestoes.agora(apps, notasUso, avisosPorPacote, musica?.pacote?.takeIf { musica?.tocando == true }, favoritosApps.map { it.chave }.toSet())
+        else Sugestoes.agora(
+            apps, notasUso, avisosPorPacote, musica?.pacote?.takeIf { musica?.tocando == true },
+            favoritosApps.map { it.chave }.toSet(), quantos = (9 - favoritosApps.size).coerceAtLeast(0),
+        )
     }
+    // a ultima mensagem de cada app ("Ana: chego em 10 min") e o resumo das notificacoes
+    val ultimas = remember(avisos) {
+        avisos.groupBy { it.pacote }.mapValues { (_, l) ->
+            val a = l.first()
+            if (a.titulo.isNotEmpty() && a.texto.isNotEmpty()) "${a.titulo}: ${a.texto}" else a.titulo + a.texto
+        }
+    }
+    val ultimoAviso = avisos.firstOrNull()?.let { a -> a.titulo.ifEmpty { apps.firstOrNull { it.pacote == a.pacote }?.nome.orEmpty() } }
     val pessoas = remember(contatos, matilhaIds) { Matilha.pessoas(contatos, matilhaIds) }
     val acoesAviso = AcoesAviso(
         abrir = { a ->
@@ -457,16 +469,19 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                 atual == Telas.INICIO -> Inicio(
                     atualizacao, ehPadrao, faixaAgora, noite, acoesInicio,
                     painel = {
-                        PainelApps(
-                            agora = agoraApps,
+                        ListaInicio(
                             favoritos = favoritosApps,
-                            escolhidos = favoritosChaves.isNotEmpty(),
+                            sugeridos = agoraApps,
+                            todos = apps,
                             avisos = avisosPorPacote,
+                            ultimas = ultimas,
+                            tocando = musica?.pacote?.takeIf { musica?.tocando == true },
                             acoes = acoesApp,
-                            aoAdicionar = { paginaAjustes = PaginasAjustes.FAVORITOS; tela = Telas.AJUSTES },
                         )
                     },
                     clima = clima,
+                    avisosTotal = avisos.size,
+                    ultimoAviso = ultimoAviso,
                     estiloRelogio = estiloRelogio,
                     tempo = previsao?.takeIf { tempoLigado }?.let { p ->
                         { TempoAgora(p, if (fahrenheit) "°F" else "°", aoTocar = { vm.atualizarTempo(forcar = true) }) }
