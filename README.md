@@ -35,6 +35,11 @@ Kotlin + Jetpack Compose. Pacote `org.wolfos.launcher`, Android 8.0 (API 26) ou 
   costume de cada hora. A faixa do agora mostra o próximo compromisso.
 - **Modo noite** (22:30–07:00, ajustável): cor lilás, só Ouvir, Ver e Conversar, e o
   despertador no topo.
+- **Menus:** segurar um app abre os atalhos dele, mudar de verbo, renomear, esconder,
+  informações e desinstalar; segurar um verbo deixa renomear, escolher os apps e esconder;
+  segurar a tela abre o menu do launcher.
+- **Ajustes** em seções, com páginas para verbos, apps escondidos e gestos, e o status das
+  permissões.
 - **Gestos:** para cima, todos os apps (por letra, com a barra de letras); para baixo, a
   cortina de notificações; para a direita, seu dia; segurar num espaço vazio, o menu.
 - **Atualização sozinha:** ver abaixo.
@@ -44,7 +49,7 @@ Kotlin + Jetpack Compose. Pacote `org.wolfos.launcher`, Android 8.0 (API 26) ou 
 - Responder mensagens direto da tela do verbo.
 - Painel de widgets (deslizar para a esquerda).
 - Tocar duas vezes para bloquear a tela.
-- Editar um verbo (renomear, ordem dos apps) e pacotes de ícones.
+- Pacotes de ícones.
 
 ## Atualizações
 
@@ -89,6 +94,9 @@ app/src/main/java/org/wolfos/launcher/
   dados/Ritmo.kt           a ordem dos verbos pela hora, fone e costume; o modo noite
   dados/Uso.kt             o que é aberto e a que horas (só no celular)
   dados/Agenda.kt          os próximos compromissos
+  dados/Conversas.kt       a Matilha pelas conversas do WhatsApp (atalhos de conversa)
+  dados/Personalizacao.kt  apps renomeados e escondidos, nomes e verbos escondidos
+  dados/Atalhos.kt         os atalhos de cada app (menu de segurar)
   avisos/                  as notificações (serviço com a permissão da pessoa)
   atualizacao/             consultar o GitHub, baixar, instalar e o trabalho periódico
   ui/Inicio.kt             relógio, faixa do agora, verbos e barra de comando
@@ -98,7 +106,10 @@ app/src/main/java/org/wolfos/launcher/
   ui/MatilhaUi.kt          a fileira da Matilha
   ui/DiaTela.kt            seu dia: antes, agora e depois
   ui/Gaveta.kt             todos os apps por letra
-  ui/AjustesTela.kt        ajustes e atualizações
+  ui/AjustesTela.kt        ajustes (páginas: principal, verbos, escondidos, gestos)
+  ui/Folha.kt              a folha dos menus e as linhas com ícone
+  ui/MenuApp.kt            segurar um app
+  ui/EditarVerbo.kt        segurar um verbo
   ui/Comum.kt, Tema.kt     peças repetidas, cores do WolfOS e a aurora
 design/                    scripts que geram os mockups (python3 design/gerar_final.py)
 ```
