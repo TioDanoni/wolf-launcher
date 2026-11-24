@@ -1,11 +1,14 @@
 package org.wolfos.launcher
 
+import android.Manifest
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
@@ -29,10 +32,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.wolfos.launcher.dados.Apps
+import org.wolfos.launcher.dados.Contatos
+import org.wolfos.launcher.dados.Padrao
 import org.wolfos.launcher.dados.Verbo
 import org.wolfos.launcher.dados.agrupar
 import org.wolfos.launcher.dados.verboDe
 import org.wolfos.launcher.ui.AcoesApp
+import org.wolfos.launcher.ui.AcoesComando
 import org.wolfos.launcher.ui.AcoesInicio
 import org.wolfos.launcher.ui.AjustesTela
 import org.wolfos.launcher.ui.Aurora
@@ -83,6 +89,9 @@ private fun Tela(vm: LauncherViewModel, home: Int) {
     val escolhas by vm.escolhas.collectAsStateWithLifecycle()
     val atualizacao by vm.atualizacao.collectAsStateWithLifecycle()
     val instalarSozinho by vm.instalarSozinho.collectAsStateWithLifecycle()
+    val contatos by vm.contatos.collectAsStateWithLifecycle()
+    val temContatos by vm.temContatos.collectAsStateWithLifecycle()
+    val ehPadrao by vm.ehPadrao.collectAsStateWithLifecycle()
 
     var tela by rememberSaveable { mutableStateOf(Telas.INICIO) }
     var busca by rememberSaveable { mutableStateOf("") }
@@ -99,6 +108,27 @@ private fun Tela(vm: LauncherViewModel, home: Int) {
     BackHandler(enabled = tela != Telas.INICIO) { voltarAoInicio() }
     BackHandler(enabled = tela == Telas.INICIO) {}
 
+    // ser a tela inicial: o pedido do proprio Android; se ele nao mostrar, a tela de ajuste
+    val pedidoPadrao = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        vm.aoVoltar()
+    }
+    val definirPadrao = {
+        val pedido = Padrao.pedido(contexto)
+        if (pedido == null || runCatching { pedidoPadrao.launch(pedido) }.isFailure) {
+            Apps.abrirTela(contexto, Padrao.telaDeAjuste())
+        }
+    }
+    // na primeira vez que abre, pede sozinho (depois, so pela faixa na tela inicial)
+    LaunchedEffect(Unit) {
+        if (!vm.preferencias.jaPediuPadrao && !Padrao.ehPadrao(contexto)) {
+            vm.preferencias.jaPediuPadrao = true
+            definirPadrao()
+        }
+    }
+    val pedidoContatos = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        vm.carregarContatos()
+    }
+
     val verbos = remember(apps, escolhas) { agrupar(apps, escolhas) }
     val acoesApp = AcoesApp(
         abrir = { app -> if (Apps.abrir(contexto, app)) voltarAoInicio() },
@@ -109,12 +139,23 @@ private fun Tela(vm: LauncherViewModel, home: Int) {
     )
     val acoesInicio = AcoesInicio(
         abrirVerbo = { tela = Telas.VERBO + it.name },
-        abrirComando = { tela = Telas.COMANDO },
+        abrirComando = { texto -> comando = texto; tela = Telas.COMANDO },
         abrirGaveta = { tela = Telas.GAVETA },
         abrirNotificacoes = { Apps.abrirNotificacoes(contexto) },
         abrirAjustes = { tela = Telas.AJUSTES },
         papelDeParede = { Apps.papelDeParede(contexto) },
         atualizar = vm::acaoAtualizacao,
+        definirPadrao = definirPadrao,
+        abrirApp = acoesApp.abrir,
+    )
+    val acoesComando = AcoesComando(
+        ligar = { if (Contatos.ligar(contexto, it)) voltarAoInicio() },
+        mensagem = { if (Contatos.mensagem(contexto, it)) voltarAoInicio() },
+        executar = { acao -> acao.executar(contexto); voltarAoInicio() },
+        ajustes = { comando = ""; tela = Telas.AJUSTES },
+        web = { Apps.buscarNaWeb(contexto, it); voltarAoInicio() },
+        pedirContatos = { pedidoContatos.launch(Manifest.permission.READ_CONTACTS) },
+        fechar = voltarAoInicio,
     )
 
     // fora do inicio o wallpaper escurece mais (o texto fica legivel sobre qualquer fundo)
@@ -131,16 +172,16 @@ private fun Tela(vm: LauncherViewModel, home: Int) {
             label = "tela",
         ) { atual ->
             when {
-                atual == Telas.INICIO -> Inicio(verbos, atualizacao, acoesInicio)
+                atual == Telas.INICIO -> Inicio(apps, verbos, atualizacao, ehPadrao, acoesInicio)
                 atual == Telas.GAVETA -> Gaveta(apps, acoesApp, busca) { busca = it }
                 atual == Telas.COMANDO -> Comando(
                     apps = apps,
+                    contatos = contatos,
+                    temContatos = temContatos,
                     texto = comando,
                     aoMudar = { comando = it },
-                    acoes = acoesApp,
-                    aoAjustes = { comando = ""; tela = Telas.AJUSTES },
-                    aoWeb = { Apps.buscarNaWeb(contexto, it); voltarAoInicio() },
-                    aoFechar = voltarAoInicio,
+                    acoesApp = acoesApp,
+                    acoes = acoesComando,
                 )
                 atual == Telas.AJUSTES -> AjustesTela(
                     atualizacao = atualizacao,

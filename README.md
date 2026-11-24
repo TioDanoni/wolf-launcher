@@ -16,18 +16,23 @@ Kotlin + Jetpack Compose. Pacote `org.wolfos.launcher`, Android 8.0 (API 26) ou 
   verbos e a barra de comando na altura do polegar.
 - **Verbos:** os apps entram sozinhos (pelo pacote conhecido ou pela categoria que o app
   declara). Tocar abre os apps do verbo; segurar um app deixa trocar o verbo dele.
+- **Desenhar uma letra** em qualquer lugar da tela inicial: abre um leque com os apps
+  daquela letra; desenhar outra por cima afina ("S" → "SP"). Se a letra vier errada, as
+  alternativas ficam embaixo ("era outra?"). O reconhecedor é próprio, leve e sem rede.
 - **Barra de comando:** os resultados sobem a partir da barra (o melhor colado nela, o
-  Enter abre); também busca na web e abre os ajustes.
+  Enter faz ele). Entende apps, pessoas da agenda ("ligar mãe", "msg ana"), contas
+  ("12 × 3", "15% de 80"), "timer 5 min", "alarme 7:30", "lanterna" e os ajustes do
+  Android ("wi-fi", "bluetooth", "brilho"…); também busca na web.
+- **Tela inicial do Android:** na primeira vez pede para ser a tela inicial; enquanto não
+  for, a faixa do agora mostra "Usar o WolfLauncher como tela inicial".
 - **Gestos:** para cima, todos os apps (por letra, com a barra de letras); para baixo, a
   cortina de notificações; segurar num espaço vazio, o menu do launcher.
 - **Atualização sozinha:** ver abaixo.
 
 ## Próximos passos
 
-1. Desenhar uma letra em qualquer lugar (leque de apps) e o comando completo (pessoas,
-   contas, "timer 5 min", ajustes do Android).
-2. A Matilha (as pessoas) e as prévias das notificações nos verbos.
-3. Seu dia (linha do tempo), verbos que mudam com a hora e o modo noite.
+1. A Matilha (as pessoas) e as prévias das notificações nos verbos.
+2. Seu dia (linha do tempo), verbos que mudam com a hora e o modo noite.
 
 ## Atualizações
 
@@ -64,9 +69,14 @@ app/src/main/java/org/wolfos/launcher/
   dados/Icones.kt          ícones carregados só quando aparecem, num cache pequeno
   dados/Verbos.kt          os verbos e em qual cada app entra
   dados/Preferencias.kt    os ajustes do launcher
+  dados/Letras.kt          reconhecer a letra desenhada com o dedo
+  dados/Comandos.kt        o que a barra entende: timer, alarme, contas, lanterna, ajustes
+  dados/Contatos.kt        a agenda (busca sem acento) e ligar/mensagem
+  dados/Padrao.kt          ser a tela inicial do Android
   atualizacao/             consultar o GitHub, baixar, instalar e o trabalho periódico
   ui/Inicio.kt             relógio, faixa do agora, verbos e barra de comando
   ui/Comando.kt            a barra de comando aberta
+  ui/Desenho.kt            a área de desenhar letras e o leque
   ui/VerboTela.kt          os apps de um verbo
   ui/Gaveta.kt             todos os apps por letra
   ui/AjustesTela.kt        ajustes e atualizações

@@ -19,8 +19,11 @@ import org.wolfos.launcher.atualizacao.EstadoAtualizacao
 import org.wolfos.launcher.atualizacao.TrabalhoAtualizacao
 import org.wolfos.launcher.dados.AppInfo
 import org.wolfos.launcher.dados.Apps
+import org.wolfos.launcher.dados.Contato
+import org.wolfos.launcher.dados.Contatos
 import org.wolfos.launcher.dados.EscolhasVerbo
 import org.wolfos.launcher.dados.Icones
+import org.wolfos.launcher.dados.Padrao
 import org.wolfos.launcher.dados.Preferencias
 import org.wolfos.launcher.dados.Verbo
 
@@ -40,6 +43,16 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     val atualizacao: StateFlow<EstadoAtualizacao> = Atualizador.estado
 
+    private val _contatos = MutableStateFlow<List<Contato>>(emptyList())
+    val contatos: StateFlow<List<Contato>> = _contatos.asStateFlow()
+
+    private val _temContatos = MutableStateFlow(Contatos.temPermissao(app))
+    val temContatos: StateFlow<Boolean> = _temContatos.asStateFlow()
+
+    /** Se o WolfLauncher e a tela inicial do Android (senao, a faixa pede). */
+    private val _ehPadrao = MutableStateFlow(Padrao.ehPadrao(app))
+    val ehPadrao: StateFlow<Boolean> = _ehPadrao.asStateFlow()
+
     // instalou, removeu ou atualizou um app: a lista acompanha
     private val pacotes = object : BroadcastReceiver() {
         override fun onReceive(contexto: Context, intent: Intent) {
@@ -58,7 +71,18 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         // as mensagens de pacote sao do sistema: chegam mesmo com o receptor fechado para os outros apps
         ContextCompat.registerReceiver(app, pacotes, filtro, ContextCompat.RECEIVER_NOT_EXPORTED)
         recarregar()
+        carregarContatos()
         TrabalhoAtualizacao.agendar(app)
+    }
+
+    /** Le a agenda fora da tela (so se a pessoa deixou). */
+    fun carregarContatos() {
+        val contexto = getApplication<Application>()
+        _temContatos.value = Contatos.temPermissao(contexto)
+        if (!_temContatos.value) return
+        viewModelScope.launch {
+            _contatos.value = withContext(Dispatchers.IO) { Contatos.carregar(contexto) }
+        }
     }
 
     fun recarregar() {
@@ -74,6 +98,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     /** O launcher voltou para a tela: procura versao nova se faz tempo que nao procura. */
     fun aoVoltar() {
+        _ehPadrao.value = Padrao.ehPadrao(getApplication())
         viewModelScope.launch {
             Atualizador.aoVoltar(getApplication())
             val passou = System.currentTimeMillis() - preferencias.ultimaVerificacao

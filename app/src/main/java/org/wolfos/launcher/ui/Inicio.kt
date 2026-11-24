@@ -1,7 +1,6 @@
 package org.wolfos.launcher.ui
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -64,92 +63,122 @@ fun agora(): LocalDateTime {
 /** O que a tela inicial pede para a tela principal fazer. */
 class AcoesInicio(
     val abrirVerbo: (Verbo) -> Unit,
-    val abrirComando: () -> Unit,
+    /** Abre a barra de comando, ja com um texto (ou vazia). */
+    val abrirComando: (String) -> Unit,
     val abrirGaveta: () -> Unit,
     val abrirNotificacoes: () -> Unit,
     val abrirAjustes: () -> Unit,
     val papelDeParede: () -> Unit,
     val atualizar: () -> Unit,
+    val definirPadrao: () -> Unit,
+    val abrirApp: (AppInfo) -> Unit,
 )
+
+/** O leque aberto: as letras desenhadas ate agora e onde o dedo parou. */
+private data class EstadoLeque(val prefixo: String, val alternativas: List<Char>, val centro: Offset)
 
 /**
  * A tela inicial: relogio, a faixa do agora, os verbos (o que voce quer fazer) e a
- * barra de comando na altura do polegar. Para cima abre todos os apps; para baixo,
- * as notificacoes; segurar num espaco vazio abre o menu do launcher.
+ * barra de comando na altura do polegar. Desenhar uma letra em qualquer lugar abre o
+ * leque de apps; para cima abre todos os apps; para baixo, as notificacoes; segurar
+ * num espaco vazio abre o menu do launcher.
  */
 @Composable
-fun Inicio(verbos: Map<Verbo, List<AppInfo>>, atualizacao: EstadoAtualizacao, acoes: AcoesInicio) {
-    var arrasto by remember { mutableStateOf(Offset.Zero) }
+fun Inicio(
+    apps: List<AppInfo>,
+    verbos: Map<Verbo, List<AppInfo>>,
+    atualizacao: EstadoAtualizacao,
+    ehPadrao: Boolean,
+    acoes: AcoesInicio,
+) {
     var menuEm by remember { mutableStateOf<Offset?>(null) }
+    var leque by remember { mutableStateOf<EstadoLeque?>(null) }
 
-    Box(
-        Modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { arrasto = Offset.Zero },
-                    onDragEnd = {
-                        val (dx, dy) = arrasto
-                        if (kotlin.math.abs(dy) > kotlin.math.abs(dx)) {
-                            if (dy < -120f) acoes.abrirGaveta() else if (dy > 120f) acoes.abrirNotificacoes()
-                        }
-                        arrasto = Offset.Zero
-                    },
-                    onDragCancel = { arrasto = Offset.Zero },
-                ) { _, d -> arrasto += d }
-            }
-            .pointerInput(Unit) {
-                detectTapGestures(onLongPress = { menuEm = it })
+    Box(Modifier.fillMaxSize()) {
+        AreaDeDesenho(
+            aoDeslizar = { dx, dy ->
+                when (direcao(dx, dy)) {
+                    -1 -> acoes.abrirGaveta()
+                    1 -> acoes.abrirNotificacoes()
+                }
             },
-    ) {
-        Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 16.dp)) {
-            Relogio(Modifier.padding(start = 10.dp, top = 28.dp))
-            textoAtualizacao(atualizacao)?.let { (simbolo, texto, botao) ->
-                Spacer(Modifier.height(16.dp))
-                Faixa(simbolo, texto, botao, acoes.atualizar)
-            }
-            // os verbos ficam embaixo, perto do polegar; se nao couberem, rolam
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                Column(
-                    verticalArrangement = Arrangement.Bottom,
-                    modifier = Modifier.align(Alignment.BottomStart).verticalScroll(rememberScrollState()),
-                ) {
-                    for (v in verbos.keys) {
-                        Text(
-                            v.titulo,
-                            fontSize = 34.sp,
-                            fontWeight = FontWeight.Light,
-                            color = Texto,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { acoes.abrirVerbo(v) }
-                                .padding(horizontal = 8.dp, vertical = 7.dp),
-                        )
+            aoLetra = { letras, fim -> leque = EstadoLeque(letras.first().toString(), letras.drop(1), fim) },
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) { detectTapGestures(onLongPress = { menuEm = it }) },
+        ) {
+            Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 16.dp)) {
+                Relogio(Modifier.padding(start = 10.dp, top = 28.dp))
+                // a faixa do agora: primeiro o que falta para o launcher funcionar direito
+                if (!ehPadrao) {
+                    Spacer(Modifier.height(16.dp))
+                    Faixa("⌂", "Usar o WolfLauncher como tela inicial", "Definir", acoes.definirPadrao)
+                }
+                textoAtualizacao(atualizacao)?.let { (simbolo, texto, botao) ->
+                    Spacer(Modifier.height(if (ehPadrao) 16.dp else 8.dp))
+                    Faixa(simbolo, texto, botao, acoes.atualizar)
+                }
+                // os verbos ficam embaixo, perto do polegar; se nao couberem, rolam
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    Column(
+                        verticalArrangement = Arrangement.Bottom,
+                        modifier = Modifier.align(Alignment.BottomStart).verticalScroll(rememberScrollState()),
+                    ) {
+                        for (v in verbos.keys) {
+                            Text(
+                                v.titulo,
+                                fontSize = 34.sp,
+                                fontWeight = FontWeight.Light,
+                                color = Texto,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { acoes.abrirVerbo(v) }
+                                    .padding(horizontal = 8.dp, vertical = 7.dp),
+                            )
+                        }
+                        if (verbos.isEmpty()) {
+                            Text("Lendo seus apps…", color = TextoFraco, modifier = Modifier.padding(8.dp))
+                        }
                     }
-                    if (verbos.isEmpty()) {
-                        Text("Lendo seus apps…", color = TextoFraco, modifier = Modifier.padding(8.dp))
+                }
+                Spacer(Modifier.height(20.dp))
+                BarraComandoFechada({ acoes.abrirComando("") })
+                Text(
+                    "desenhe uma letra  ·  ︿ todos os apps  ·  segure para ajustes",
+                    color = TextoFraco.copy(alpha = 0.7f),
+                    fontSize = 11.5.sp,
+                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp, bottom = 4.dp),
+                )
+            }
+
+            // o menu de segurar num espaco vazio, aberto onde o dedo estava
+            menuEm?.let { o ->
+                Box(Modifier.offset { IntOffset(o.x.toInt(), o.y.toInt()) }) {
+                    DropdownMenu(expanded = true, onDismissRequest = { menuEm = null }) {
+                        DropdownMenuItem(text = { Text("Ajustes do WolfLauncher") }, onClick = { menuEm = null; acoes.abrirAjustes() })
+                        DropdownMenuItem(text = { Text("Papel de parede") }, onClick = { menuEm = null; acoes.papelDeParede() })
+                        DropdownMenuItem(text = { Text("Todos os apps") }, onClick = { menuEm = null; acoes.abrirGaveta() })
                     }
                 }
             }
-            Spacer(Modifier.height(20.dp))
-            BarraComandoFechada(acoes.abrirComando)
-            Text(
-                "︿ todos os apps  ·  segure para os ajustes",
-                color = TextoFraco.copy(alpha = 0.7f),
-                fontSize = 11.5.sp,
-                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp, bottom = 4.dp),
-            )
         }
 
-        // o menu de segurar num espaco vazio, aberto onde o dedo estava
-        menuEm?.let { o ->
-            Box(Modifier.offset { IntOffset(o.x.toInt(), o.y.toInt()) }) {
-                DropdownMenu(expanded = true, onDismissRequest = { menuEm = null }) {
-                    DropdownMenuItem(text = { Text("Ajustes do WolfLauncher") }, onClick = { menuEm = null; acoes.abrirAjustes() })
-                    DropdownMenuItem(text = { Text("Papel de parede") }, onClick = { menuEm = null; acoes.papelDeParede() })
-                    DropdownMenuItem(text = { Text("Todos os apps") }, onClick = { menuEm = null; acoes.abrirGaveta() })
-                }
-            }
+        leque?.let { l ->
+            Leque(
+                apps = apps,
+                prefixo = l.prefixo,
+                alternativas = l.alternativas,
+                centro = l.centro,
+                aoAbrir = { app -> leque = null; acoes.abrirApp(app) },
+                aoTrocarLetra = { c ->
+                    // a letra reconhecida estava errada: troca a ultima e guarda a errada como alternativa
+                    val errada = l.prefixo.last()
+                    leque = l.copy(prefixo = l.prefixo.dropLast(1) + c, alternativas = l.alternativas - c + errada)
+                },
+                aoMaisLetras = { letras -> leque = l.copy(prefixo = l.prefixo + letras.first(), alternativas = letras.drop(1)) },
+                aoVerTodos = { leque = null; acoes.abrirComando(l.prefixo.lowercase()) },
+                aoFechar = { leque = null },
+            )
         }
     }
 }
