@@ -14,7 +14,10 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.wolfos.launcher.atualizacao.Atualizador
@@ -37,19 +40,62 @@ import org.wolfos.launcher.dados.EscolhasVerbo
 import org.wolfos.launcher.dados.Icones
 import org.wolfos.launcher.dados.Matilha
 import org.wolfos.launcher.dados.Padrao
+import org.wolfos.launcher.dados.Personalizacao
+import org.wolfos.launcher.dados.Verbo
 import org.wolfos.launcher.dados.Evento
 import org.wolfos.launcher.dados.Preferencias
 import org.wolfos.launcher.dados.Ritmo
 import org.wolfos.launcher.dados.Uso
-import org.wolfos.launcher.dados.Verbo
 
 /** Estado do launcher: os apps (lidos fora da tela), as escolhas de verbo e a atualizacao. */
 class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     private val escolhasArq = EscolhasVerbo(app)
     val preferencias = Preferencias(app)
 
-    private val _apps = MutableStateFlow<List<AppInfo>>(emptyList())
-    val apps: StateFlow<List<AppInfo>> = _apps.asStateFlow()
+    // ---- os apps: como o Android entrega, com os nomes trocados, e sem os escondidos
+    private val personal = Personalizacao(app)
+    private val _brutos = MutableStateFlow<List<AppInfo>>(emptyList())
+    private val _nomes = MutableStateFlow(personal.nomes())
+    private val _escondidos = MutableStateFlow(personal.escondidos())
+    val escondidos: StateFlow<Set<String>> = _escondidos.asStateFlow()
+
+    /** Todos os apps, ja com os nomes que a pessoa escolheu (inclui os escondidos). */
+    val todosApps: StateFlow<List<AppInfo>> = combine(_brutos, _nomes) { brutos, nomes ->
+        if (nomes.isEmpty()) brutos
+        else Apps.ordenar(brutos.map { a -> nomes[a.chave]?.let { a.copy(nome = it, nomeOriginal = a.nome) } ?: a })
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Os apps que aparecem no launcher (sem os escondidos). */
+    val apps: StateFlow<List<AppInfo>> = combine(todosApps, _escondidos) { todos, esc ->
+        if (esc.isEmpty()) todos else todos.filter { it.chave !in esc }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    private val _verbosEscondidos = MutableStateFlow(personal.verbosEscondidos())
+    val verbosEscondidos: StateFlow<Set<Verbo>> = _verbosEscondidos.asStateFlow()
+
+    private val _titulos = MutableStateFlow(personal.titulos())
+    val titulos: StateFlow<Map<Verbo, String>> = _titulos.asStateFlow()
+
+    fun renomear(app: AppInfo, nome: String?) {
+        // voltar ao nome original e o mesmo que tirar o nome escolhido
+        personal.renomear(app.chave, nome?.takeIf { it.trim() != app.nomeOriginal })
+        _nomes.value = personal.nomes()
+    }
+
+    fun esconder(app: AppInfo, esconder: Boolean = true) {
+        personal.esconder(app.chave, esconder)
+        _escondidos.value = personal.escondidos()
+    }
+
+    fun esconderVerbo(v: Verbo, esconder: Boolean) {
+        personal.esconderVerbo(v, esconder)
+        _verbosEscondidos.value = personal.verbosEscondidos()
+    }
+
+    fun renomearVerbo(v: Verbo, titulo: String?) {
+        personal.renomearVerbo(v, titulo)
+        _titulos.value = personal.titulos()
+    }
 
     private val _escolhas = MutableStateFlow(escolhasArq.ler())
     val escolhas: StateFlow<Map<String, String>> = _escolhas.asStateFlow()
@@ -200,7 +246,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     fun recarregar() {
         viewModelScope.launch {
-            _apps.value = withContext(Dispatchers.IO) { Apps.carregar(getApplication()) }
+            _brutos.value = withContext(Dispatchers.IO) { Apps.carregar(getApplication()) }
         }
     }
 

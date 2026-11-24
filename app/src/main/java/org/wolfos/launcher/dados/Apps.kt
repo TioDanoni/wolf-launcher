@@ -24,6 +24,8 @@ data class AppInfo(
     val atividade: String,
     /** Categoria que o proprio app declara (ApplicationInfo.CATEGORY_*), ou -1. */
     val categoria: Int,
+    /** O nome que o app tem de verdade (diferente de [nome] quando a pessoa renomeou). */
+    val nomeOriginal: String = nome,
 ) {
     /** Chave estavel (pacote/atividade), usada nas escolhas da pessoa. */
     val chave: String = "$pacote/$atividade"
@@ -66,8 +68,7 @@ object Apps {
             @Suppress("DEPRECATION")
             pm.queryIntentActivities(intent, 0)
         }
-        val colator = Collator.getInstance(Locale.forLanguageTag("pt-BR")).apply { strength = Collator.PRIMARY }
-        return lista
+        return ordenar(lista
             .filter { it.activityInfo.packageName != contexto.packageName }
             .map { r ->
                 AppInfo(
@@ -77,16 +78,20 @@ object Apps {
                     categoria = r.activityInfo.applicationInfo.category,
                 )
             }
-            .distinctBy { it.chave }
-            .sortedWith { a, b ->
-                // o "#" (numeros, simbolos) fica no fim, como nas agendas
-                val (la, lb) = a.letra to b.letra
-                when {
-                    la == "#" && lb != "#" -> 1
-                    lb == "#" && la != "#" -> -1
-                    else -> colator.compare(a.nome, b.nome)
-                }
+            .distinctBy { it.chave })
+    }
+
+    /** Ordem alfabetica em pt-BR (sem ligar para acento); o "#" fica no fim, como nas agendas. */
+    fun ordenar(apps: List<AppInfo>): List<AppInfo> {
+        val colator = Collator.getInstance(Locale.forLanguageTag("pt-BR")).apply { strength = Collator.PRIMARY }
+        return apps.sortedWith { a, b ->
+            val (la, lb) = a.letra to b.letra
+            when {
+                la == "#" && lb != "#" -> 1
+                lb == "#" && la != "#" -> -1
+                else -> colator.compare(a.nome, b.nome)
             }
+        }
     }
 
     fun abrir(contexto: Context, app: AppInfo): Boolean = runCatching {

@@ -42,6 +42,7 @@ import org.wolfos.launcher.avisos.Tocando
 import org.wolfos.launcher.dados.Agenda
 import org.wolfos.launcher.dados.AppInfo
 import org.wolfos.launcher.dados.Apps
+import org.wolfos.launcher.dados.Atalhos
 import org.wolfos.launcher.dados.Contatos
 import org.wolfos.launcher.dados.Conversas
 import org.wolfos.launcher.dados.Evento
@@ -52,7 +53,12 @@ import org.wolfos.launcher.dados.Uso
 import org.wolfos.launcher.dados.Verbo
 import org.wolfos.launcher.dados.agrupar
 import org.wolfos.launcher.dados.verboDe
+import org.wolfos.launcher.ui.AcoesAjustes
 import org.wolfos.launcher.ui.AcoesApp
+import org.wolfos.launcher.ui.AcoesVerbo
+import org.wolfos.launcher.ui.EditarVerbo
+import org.wolfos.launcher.ui.EstadoAjustes
+import org.wolfos.launcher.ui.PaginasAjustes
 import org.wolfos.launcher.ui.AcoesAviso
 import org.wolfos.launcher.ui.AcoesDia
 import org.wolfos.launcher.ui.AcoesMusica
@@ -143,6 +149,13 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     val usoMudou by vm.usoMudou.collectAsStateWithLifecycle()
     val musica by vm.musica.collectAsStateWithLifecycle()
     val iconesNosVerbos by vm.iconesNosVerbos.collectAsStateWithLifecycle()
+    val todosApps by vm.todosApps.collectAsStateWithLifecycle()
+    val escondidos by vm.escondidos.collectAsStateWithLifecycle()
+    val verbosEscondidos by vm.verbosEscondidos.collectAsStateWithLifecycle()
+    val titulos by vm.titulos.collectAsStateWithLifecycle()
+    // o verbo com o menu de editar aberto (vale para a tela inicial e para os ajustes)
+    var verboEditando by rememberSaveable { mutableStateOf<String?>(null) }
+    var paginaAjustes by rememberSaveable { mutableStateOf(PaginasAjustes.PRINCIPAL) }
 
     var tela by rememberSaveable { mutableStateOf(Telas.INICIO) }
     var busca by rememberSaveable { mutableStateOf("") }
@@ -154,7 +167,10 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         comando = ""
     }
     // Home: volta sempre para o inicio
-    LaunchedEffect(home) { voltarAoInicio() }
+    LaunchedEffect(home) {
+        voltarAoInicio()
+        verboEditando = null
+    }
     // voltar volta para o inicio; no inicio nao faz nada (o launcher nao "sai")
     BackHandler(enabled = tela != Telas.INICIO) { voltarAoInicio() }
     BackHandler(enabled = tela == Telas.INICIO) {}
@@ -190,7 +206,9 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         vm.carregarDia()
     }
 
-    val todosOsVerbos = remember(apps, escolhas) { agrupar(apps, escolhas) }
+    // todos os verbos com os apps (para os ajustes) e os que aparecem na tela inicial
+    val verbosCompletos = remember(apps, escolhas) { agrupar(apps, escolhas) }
+    val todosOsVerbos = remember(verbosCompletos, verbosEscondidos) { verbosCompletos.filterKeys { it !in verbosEscondidos } }
     // a ordem do momento: hora do dia, costume da pessoa, fone, modo noite
     val pontos = remember(hora, usoMudou) { vm.uso.pontosDosVerbos(hora) }
     // com musica tocando o Ouvir sobe, como com o fone
@@ -214,13 +232,19 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         mudarVerbo = vm::mudarVerbo,
         informacoes = { Apps.informacoes(contexto, it) },
         desinstalar = { Apps.desinstalar(contexto, it) },
+        renomear = vm::renomear,
+        esconder = { vm.esconder(it) },
+        abrirAtalho = { if (Atalhos.abrir(contexto, it)) voltarAoInicio() },
+        tituloDoVerbo = { titulos[it] ?: it.titulo },
     )
     val acoesInicio = AcoesInicio(
         abrirVerbo = { tela = Telas.VERBO + it.name },
         abrirComando = { texto -> comando = texto; tela = Telas.COMANDO },
         abrirGaveta = { tela = Telas.GAVETA },
         abrirNotificacoes = { Apps.abrirNotificacoes(contexto) },
-        abrirAjustes = { tela = Telas.AJUSTES },
+        abrirAjustes = { paginaAjustes = PaginasAjustes.PRINCIPAL; tela = Telas.AJUSTES },
+        editarVerbo = { verboEditando = it.name },
+        ajustesDosVerbos = { paginaAjustes = PaginasAjustes.VERBOS; tela = Telas.AJUSTES },
         papelDeParede = { Apps.papelDeParede(contexto) },
         atualizar = vm::acaoAtualizacao,
         definirPadrao = definirPadrao,
@@ -319,7 +343,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
             when {
                 atual == Telas.INICIO -> Inicio(
                     apps, verbos, atualizacao, ehPadrao, previas, faixaAgora, noite,
-                    iconesDosVerbos, musica, acoesMusica, acoesInicio,
+                    iconesDosVerbos, titulos, musica, acoesMusica, acoesInicio,
                 ) {
                     when {
                         !mostrarMatilha -> Unit
@@ -364,42 +388,78 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                     acoes = acoesComando,
                 )
                 atual == Telas.AJUSTES -> AjustesTela(
-                    atualizacao = atualizacao,
-                    instalarSozinho = instalarSozinho,
-                    aoInstalarSozinho = vm::definirInstalarSozinho,
-                    aoAtualizar = vm::acaoAtualizacao,
-                    aoProcurar = { pronto -> vm.procurarAtualizacao(pronto) },
-                    aoPapelDeParede = { Apps.papelDeParede(contexto) },
-                    avisosPermitidos = avisosPermitidos,
-                    aoPermitirAvisos = { Avisos.pedirPermissao(contexto) },
-                    aoInformacoesDoLauncher = {
-                        Apps.abrirTela(
-                            contexto,
-                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + contexto.packageName)),
-                        )
-                    },
-                    mostrarMatilha = mostrarMatilha,
-                    aoMostrarMatilha = vm::definirMostrarMatilha,
-                    tipoMatilha = tipoMatilha,
-                    aoTipoMatilha = vm::definirTipoMatilha,
-                    matilhaPeloWhatsapp = conversas.isNotEmpty(),
-                    iconesNosVerbos = iconesNosVerbos,
-                    aoIconesNosVerbos = vm::definirIconesNosVerbos,
-                    ritmo = ritmo,
-                    aoRitmo = vm::definirRitmo,
-                    modoNoite = modoNoite,
-                    aoModoNoite = vm::definirModoNoite,
-                    janelaNoite = janelaNoite,
-                    aoJanelaNoite = vm::definirJanelaNoite,
-                    aoFechar = voltarAoInicio,
+                    EstadoAjustes(
+                        atualizacao = atualizacao,
+                        instalarSozinho = instalarSozinho,
+                        ehPadrao = ehPadrao,
+                        avisosPermitidos = avisosPermitidos,
+                        temAgenda = temAgenda,
+                        temContatos = temContatos,
+                        mostrarMatilha = mostrarMatilha,
+                        tipoMatilha = tipoMatilha,
+                        matilhaPeloWhatsapp = conversas.isNotEmpty(),
+                        iconesNosVerbos = iconesNosVerbos,
+                        ritmo = ritmo,
+                        modoNoite = modoNoite,
+                        janelaNoite = janelaNoite,
+                        appsPorVerbo = verbosCompletos.mapValues { it.value.size },
+                        titulos = titulos,
+                        verbosEscondidos = verbosEscondidos,
+                        appsEscondidos = todosApps.filter { it.chave in escondidos },
+                    ),
+                    AcoesAjustes(
+                        fechar = voltarAoInicio,
+                        atualizar = vm::acaoAtualizacao,
+                        procurar = { pronto -> vm.procurarAtualizacao(pronto) },
+                        instalarSozinho = vm::definirInstalarSozinho,
+                        definirPadrao = definirPadrao,
+                        permitirAvisos = { Avisos.pedirPermissao(contexto) },
+                        permitirAgenda = { pedidoAgenda.launch(Manifest.permission.READ_CALENDAR) },
+                        permitirContatos = { pedidoContatos.launch(Manifest.permission.READ_CONTACTS) },
+                        informacoesDoLauncher = {
+                            Apps.abrirTela(
+                                contexto,
+                                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + contexto.packageName)),
+                            )
+                        },
+                        papelDeParede = { Apps.papelDeParede(contexto) },
+                        mostrarMatilha = vm::definirMostrarMatilha,
+                        tipoMatilha = vm::definirTipoMatilha,
+                        iconesNosVerbos = vm::definirIconesNosVerbos,
+                        ritmo = vm::definirRitmo,
+                        modoNoite = vm::definirModoNoite,
+                        janelaNoite = vm::definirJanelaNoite,
+                        editarVerbo = { verboEditando = it.name },
+                        esconderVerbo = vm::esconderVerbo,
+                        mostrarApp = { vm.esconder(it, false) },
+                        abrirCodigo = { Apps.abrirTela(contexto, Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/TioDanoni/wolf-launcher"))) },
+                    ),
+                    paginaInicial = paginaAjustes,
                 )
                 atual.startsWith(Telas.VERBO) -> {
                     val verbo = Verbo.entries.firstOrNull { it.name == atual.removePrefix(Telas.VERBO) }
                     val lista = verbo?.let { verbos[it] }.orEmpty()
-                    if (verbo != null) VerboTela(verbo, lista, avisos, avisosPermitidos, acoesApp, acoesAviso, voltarAoInicio)
+                    if (verbo != null) VerboTela(verbo, titulos[verbo] ?: verbo.titulo, lista, avisos, avisosPermitidos, acoesApp, acoesAviso, voltarAoInicio)
                 }
                 else -> Unit
             }
+        }
+
+        // o menu de editar um verbo (segurar na tela inicial, ou tocar nos ajustes)
+        verboEditando?.let { nome -> Verbo.entries.firstOrNull { it.name == nome } }?.let { v ->
+            EditarVerbo(
+                verbo = v,
+                titulo = titulos[v] ?: v.titulo,
+                apps = verbosCompletos[v].orEmpty(),
+                todos = apps,
+                escondido = v in verbosEscondidos,
+                acoes = AcoesVerbo(
+                    renomear = vm::renomearVerbo,
+                    esconder = vm::esconderVerbo,
+                    mudarVerbo = vm::mudarVerbo,
+                ),
+                aoFechar = { verboEditando = null },
+            )
         }
     }
 }

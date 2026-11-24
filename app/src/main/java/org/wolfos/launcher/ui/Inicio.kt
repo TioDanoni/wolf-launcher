@@ -1,5 +1,12 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Today
+import androidx.compose.material.icons.outlined.Wallpaper
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
@@ -119,6 +126,10 @@ class AcoesInicio(
     val definirPadrao: () -> Unit,
     val abrirApp: (AppInfo) -> Unit,
     val abrirDia: () -> Unit,
+    /** Segurar um verbo: o menu de editar. */
+    val editarVerbo: (Verbo) -> Unit = {},
+    /** Ajustes direto na pagina dos verbos. */
+    val ajustesDosVerbos: () -> Unit = {},
 )
 
 /** O que esta esperando num verbo: a ultima notificacao e quantas tem. */
@@ -145,6 +156,8 @@ fun Inicio(
     noite: Boolean,
     /** Os apps que aparecem ao lado de cada verbo (os mais usados); vazio = so texto. */
     iconesDosVerbos: Map<Verbo, List<AppInfo>>,
+    /** O nome de cada verbo (a pessoa pode ter trocado). */
+    titulos: Map<Verbo, String>,
     /** A musica de agora (aparece no Ouvir). */
     musica: Musica?,
     acoesMusica: AcoesMusica,
@@ -152,7 +165,7 @@ fun Inicio(
     /** A fileira da Matilha (ou nada), logo acima da barra de comando. */
     matilha: @Composable () -> Unit,
 ) {
-    var menuEm by remember { mutableStateOf<Offset?>(null) }
+    var menuAberto by remember { mutableStateOf(false) }
     var leque by remember { mutableStateOf<EstadoLeque?>(null) }
 
     Box(Modifier.fillMaxSize()) {
@@ -167,7 +180,7 @@ fun Inicio(
             aoLetra = { letras, fim -> leque = EstadoLeque(letras.first().toString(), letras.drop(1), fim) },
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(Unit) { detectTapGestures(onLongPress = { menuEm = it }) },
+                .pointerInput(Unit) { detectTapGestures(onLongPress = { menuAberto = true }) },
         ) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 18.dp)) {
                 Marca(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp))
@@ -188,6 +201,7 @@ fun Inicio(
                         lista.forEachIndexed { i, v ->
                             LinhaVerbo(
                                 verbo = v,
+                                titulo = titulos[v] ?: v.titulo,
                                 previa = previas[v],
                                 icones = iconesDosVerbos[v].orEmpty(),
                                 musica = musica.takeIf { v == Verbo.OUVIR },
@@ -195,6 +209,7 @@ fun Inicio(
                                 ultima = i == lista.lastIndex,
                                 acoesMusica = acoesMusica,
                                 aoApp = acoes.abrirApp,
+                                aoSegurar = { acoes.editarVerbo(v) },
                             ) { acoes.abrirVerbo(v) }
                         }
                         if (verbos.isEmpty()) {
@@ -209,14 +224,31 @@ fun Inicio(
                 Spacer(Modifier.height(10.dp))
             }
 
-            // o menu de segurar num espaco vazio, aberto onde o dedo estava
-            menuEm?.let { o ->
-                Box(Modifier.offset { IntOffset(o.x.toInt(), o.y.toInt()) }) {
-                    DropdownMenu(expanded = true, onDismissRequest = { menuEm = null }) {
-                        DropdownMenuItem(text = { Text("Ajustes do WolfLauncher") }, onClick = { menuEm = null; acoes.abrirAjustes() })
-                        DropdownMenuItem(text = { Text("Papel de parede") }, onClick = { menuEm = null; acoes.papelDeParede() })
-                        DropdownMenuItem(text = { Text("Todos os apps") }, onClick = { menuEm = null; acoes.abrirGaveta() })
-                    }
+        }
+
+        // segurar num espaco vazio: o menu do launcher
+        if (menuAberto) {
+            val fechar = { menuAberto = false }
+            Folha(fechar) {
+                Text(
+                    "WolfLauncher", color = Texto, fontSize = 21.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+                )
+                SecaoMenu("Tela inicial")
+                LinhaMenu(Icons.Outlined.Settings, "Ajustes do WolfLauncher", "verbos, Matilha, ritmo, permissões", fim = { Seta() }) {
+                    fechar(); acoes.abrirAjustes()
+                }
+                LinhaMenu(Icons.Outlined.Category, "Editar verbos", "renomear, esconder, escolher os apps", fim = { Seta() }) {
+                    fechar(); acoes.ajustesDosVerbos()
+                }
+                LinhaMenu(Icons.Outlined.Wallpaper, "Papel de parede", "a cor de destaque acompanha", fim = { Seta() }) {
+                    fechar(); acoes.papelDeParede()
+                }
+                LinhaMenu(Icons.Outlined.Apps, "Todos os apps", "também deslizando para cima", fim = { Seta() }) {
+                    fechar(); acoes.abrirGaveta()
+                }
+                LinhaMenu(Icons.Outlined.Today, "Seu dia", "também deslizando para a direita", fim = { Seta() }) {
+                    fechar(); acoes.abrirDia()
                 }
             }
         }
@@ -249,7 +281,7 @@ class AcoesMusica(
 )
 
 /** O desenho e a descricao de cada verbo. */
-private fun iconeDoVerbo(v: Verbo): ImageVector = when (v) {
+fun iconeDoVerbo(v: Verbo): ImageVector = when (v) {
     Verbo.CONVERSAR -> Icons.Outlined.ChatBubbleOutline
     Verbo.TRABALHAR -> Icons.Outlined.WorkOutline
     Verbo.OUVIR -> Icons.Outlined.Headphones
@@ -259,7 +291,7 @@ private fun iconeDoVerbo(v: Verbo): ImageVector = when (v) {
     Verbo.JOGAR -> Icons.Outlined.SportsEsports
 }
 
-private fun descricao(v: Verbo): String = when (v) {
+fun descricaoDoVerbo(v: Verbo): String = when (v) {
     Verbo.CONVERSAR -> "Mensagens, chamadas e redes"
     Verbo.TRABALHAR -> "E-mail, agenda e documentos"
     Verbo.OUVIR -> "Música, podcasts e áudio"
@@ -274,9 +306,11 @@ private fun descricao(v: Verbo): String = when (v) {
  * e, na direita, os apps que voce mais usa dele (numa cor so; tocar abre direto). Com
  * algo esperando, a descricao vira a previa; no Ouvir, a musica de agora e os controles.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun LinhaVerbo(
     verbo: Verbo,
+    titulo: String,
     previa: Previa?,
     icones: List<AppInfo>,
     musica: Musica?,
@@ -284,6 +318,7 @@ private fun LinhaVerbo(
     ultima: Boolean,
     acoesMusica: AcoesMusica,
     aoApp: (AppInfo) -> Unit,
+    aoSegurar: () -> Unit,
     aoTocar: () -> Unit,
 ) {
     val cor = MaterialTheme.colorScheme.primary
@@ -310,7 +345,7 @@ private fun LinhaVerbo(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
-                .clickable(interactionSource = toque, indication = null, onClick = aoTocar)
+                .combinedClickable(interactionSource = toque, indication = null, onClick = aoTocar, onLongClick = aoSegurar)
                 .padding(horizontal = 6.dp, vertical = 12.dp),
         ) {
             Icon(
@@ -323,7 +358,7 @@ private fun LinhaVerbo(
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        verbo.titulo,
+                        titulo,
                         fontSize = 25.sp,
                         fontWeight = if (ativo) FontWeight.SemiBold else FontWeight.Normal,
                         color = Texto,
@@ -337,7 +372,7 @@ private fun LinhaVerbo(
                 val sub = when {
                     musica != null -> (if (musica.tocando) "♪ " else "⏸ ") + musica.titulo + (if (musica.artista.isNotBlank()) " · " + musica.artista else "")
                     previa != null -> previa.texto + if (previa.total > 1) "  ·  +${previa.total - 1}" else ""
-                    else -> descricao(verbo)
+                    else -> descricaoDoVerbo(verbo)
                 }
                 Text(
                     sub,

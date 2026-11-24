@@ -55,6 +55,7 @@ class AcoesAviso(
 @Composable
 fun VerboTela(
     verbo: Verbo,
+    titulo: String,
     apps: List<AppInfo>,
     avisos: List<Aviso>,
     avisosPermitidos: Boolean,
@@ -69,7 +70,7 @@ fun VerboTela(
     val linha = GridItemSpan(3)
 
     Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-        Cabecalho(verbo.titulo, aoFechar)
+        Cabecalho(titulo, aoFechar)
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
@@ -86,7 +87,7 @@ fun VerboTela(
                 }
             }
             item(span = { linha }) {
-                Rotulo("Apps para ${verbo.titulo.lowercase()}", Modifier.padding(start = 14.dp, top = 16.dp, bottom = 4.dp))
+                Rotulo("Apps para ${titulo.lowercase()}", Modifier.padding(start = 14.dp, top = 16.dp, bottom = 4.dp))
             }
             items(apps, key = { it.chave }) { app -> AppNaGrade(app, contagem[app.pacote] ?: 0, acoes) }
         }
