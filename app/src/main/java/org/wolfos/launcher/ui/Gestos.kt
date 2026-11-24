@@ -77,9 +77,10 @@ fun Pilula(texto: String, destaque: Boolean, aoTocar: () -> Unit) {
  * posicao dele (um depois do outro).
  */
 @Composable
-fun Modifier.entrada(indice: Int, atraso: Long = 55L): Modifier {
-    val v = remember { androidx.compose.animation.core.Animatable(0f) }
+fun Modifier.entrada(indice: Int, atraso: Long = 55L, ligado: Boolean = true): Modifier {
+    val v = remember { androidx.compose.animation.core.Animatable(if (ligado) 0f else 1f) }
     androidx.compose.runtime.LaunchedEffect(Unit) {
+        if (!ligado) return@LaunchedEffect
         kotlinx.coroutines.delay(indice * atraso)
         v.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.72f, stiffness = 220f))
     }

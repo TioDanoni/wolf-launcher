@@ -1,5 +1,8 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.clickable
@@ -72,7 +75,9 @@ fun Gaveta(
         var i = if (comRecentes) 1 else 0
         secoes.mapValues { (_, itens) -> i.also { i += itens.size + 1 } }
     }
-    var letraAtual by remember { mutableStateOf<String?>(null) }
+    // os apps entram em cascata so logo que a lista abre (nao a cada rolagem)
+    val abriu = remember { System.currentTimeMillis() }
+    val posicao = remember(lista) { lista.withIndex().associate { (i, a) -> a.chave to i } }
 
     Column(Modifier.fillMaxSize().safeDrawingPadding()) {
         OutlinedTextField(
@@ -98,16 +103,16 @@ fun Gaveta(
                         stickyHeader(key = "letra-$letra") {
                             Text(
                                 letra,
-                                color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
+                                fontSize = 16.sp,
+                                style = androidx.compose.ui.text.TextStyle(brush = degradeH()),
                                 modifier = Modifier.padding(start = 24.dp, top = 14.dp, bottom = 4.dp),
                             )
                         }
-                        itens.forEach { app -> item(key = app.chave) { LinhaApp(app, avisos[app.pacote] ?: 0, acoes) } }
+                        itens.forEach { app -> item(key = app.chave) { LinhaApp(app, avisos[app.pacote] ?: 0, acoes, posicao[app.chave] ?: 0, abriu) } }
                     }
                 } else {
-                    lista.forEach { app -> item(key = app.chave) { LinhaApp(app, avisos[app.pacote] ?: 0, acoes) } }
+                    lista.forEach { app -> item(key = app.chave) { LinhaApp(app, avisos[app.pacote] ?: 0, acoes, posicao[app.chave] ?: 0, abriu) } }
                     if (lista.isEmpty()) {
                         item {
                             Text("Nenhum app com esse nome.", color = TextoFraco, modifier = Modifier.padding(24.dp))
@@ -116,14 +121,11 @@ fun Gaveta(
                 }
             }
             if (agrupado && secoes.size > 1) {
-                BarraDeLetras(
+                AlfabetoLateral(
                     letras = secoes.keys.toList(),
-                    atual = letraAtual,
-                    aoEscolher = { letra ->
-                        letraAtual = letra
-                        indices[letra]?.let { escopo.launch { estado.scrollToItem(it) } }
-                    },
-                    aoSoltar = { letraAtual = null },
+                    aoEscolher = { letra -> indices[letra]?.let { escopo.launch { estado.scrollToItem(it) } } },
+                    aoSoltar = {},
+                    modifier = Modifier.padding(vertical = 8.dp),
                 )
             }
         }
@@ -132,14 +134,25 @@ fun Gaveta(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun LinhaApp(app: AppInfo, avisos: Int, acoes: AcoesApp) {
+private fun LinhaApp(app: AppInfo, avisos: Int, acoes: AcoesApp, indice: Int, abriu: Long) {
     var menu by remember(app.chave) { mutableStateOf(false) }
-    Box {
+    // so anima a entrada nos primeiros instantes depois de abrir a lista
+    val animar = remember { System.currentTimeMillis() - abriu < 450 }
+    val toque = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val apertado by toque.collectIsPressedAsState()
+    val escala by androidx.compose.animation.core.animateFloatAsState(if (apertado) 0.96f else 1f, label = "escala")
+    Box(Modifier.entrada(indice.coerceAtMost(14), atraso = 24L, ligado = animar)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .combinedClickable(onClick = { acoes.abrir(app) }, onLongClick = { menu = true })
+                .graphicsLayer { scaleX = escala; scaleY = escala }
+                .combinedClickable(
+                    interactionSource = toque,
+                    indication = androidx.compose.foundation.LocalIndication.current,
+                    onClick = { acoes.abrir(app) },
+                    onLongClick = { menu = true },
+                )
                 .padding(horizontal = 24.dp, vertical = 9.dp),
         ) {
             IconeApp(app, 40.dp)
@@ -148,50 +161,6 @@ private fun LinhaApp(app: AppInfo, avisos: Int, acoes: AcoesApp) {
             if (avisos > 0) Selo(avisos, Modifier.padding(start = 10.dp))
         }
         MenuApp(app, menu, { menu = false }, acoes)
-    }
-}
-
-/** A coluna de letras na direita: tocar ou arrastar o dedo escolhe a letra. */
-@Composable
-private fun BarraDeLetras(letras: List<String>, atual: String?, aoEscolher: (String) -> Unit, aoSoltar: () -> Unit) {
-    var altura by remember { mutableStateOf(1) }
-    val letraEm = { y: Float ->
-        val i = (y / altura * letras.size).toInt().coerceIn(0, letras.size - 1)
-        letras[i]
-    }
-    Column(
-        verticalArrangement = Arrangement.SpaceEvenly,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .width(32.dp)
-            .fillMaxHeight()
-            .padding(vertical = 8.dp)
-            .pointerInput(letras) {
-                altura = size.height.coerceAtLeast(1)
-                detectTapGestures(onPress = { o ->
-                    aoEscolher(letraEm(o.y))
-                    tryAwaitRelease()
-                    aoSoltar()
-                })
-            }
-            .pointerInput(letras) {
-                altura = size.height.coerceAtLeast(1)
-                detectVerticalDragGestures(
-                    onDragStart = { o -> aoEscolher(letraEm(o.y)) },
-                    onDragEnd = aoSoltar,
-                    onDragCancel = aoSoltar,
-                ) { mudanca, _ -> aoEscolher(letraEm(mudanca.position.y)) }
-            },
-    ) {
-        for (letra in letras) {
-            val escolhida = letra == atual
-            Text(
-                letra,
-                fontSize = if (escolhida) 16.sp else 11.sp,
-                fontWeight = if (escolhida) FontWeight.Bold else FontWeight.Medium,
-                color = if (escolhida) MaterialTheme.colorScheme.primary else TextoFraco,
-            )
-        }
     }
 }
 
