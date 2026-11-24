@@ -8,6 +8,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -120,7 +121,7 @@ private fun Membro(pessoa: Contato, esperando: List<Aviso>, acoes: AcoesPessoa) 
             ) { Avatar(pessoa.nome, 46.dp, pessoa.foto) }
             Text(
                 Matilha.primeiroNome(pessoa),
-                color = if (esperando.isNotEmpty()) Texto else Texto.copy(alpha = 0.8f),
+                color = if (esperando.isNotEmpty()) cor else Texto.copy(alpha = 0.8f),
                 fontSize = 11.5.sp,
                 style = TextStyle(shadow = SombraTexto),
                 fontWeight = if (esperando.isNotEmpty()) FontWeight.SemiBold else FontWeight.Normal,
@@ -130,6 +131,8 @@ private fun Membro(pessoa: Contato, esperando: List<Aviso>, acoes: AcoesPessoa) 
                 modifier = Modifier.padding(top = 3.dp),
             )
         }
+        val naoLidas = esperando.sumOf { it.mensagens }
+        if (naoLidas > 0) SeloMatilha(naoLidas, Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 4.dp))
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             val item = @Composable { texto: String, acao: () -> Unit ->
                 DropdownMenuItem(text = { Text(texto, maxLines = 2, overflow = TextOverflow.Ellipsis) }, onClick = { menu = false; acao() })
@@ -244,13 +247,10 @@ private fun MembroConversa(c: Conversa, fixada: Boolean, esperando: List<Aviso>,
                     .padding(5.dp),
             ) {
                 FotoConversa(c, 46.dp)
-                if (esperando.size > 1) {
-                    Selo(esperando.size, Modifier.align(Alignment.TopEnd).size(18.dp))
-                }
             }
             Text(
                 Conversas.nomeCurto(c),
-                color = if (esperando.isNotEmpty()) Texto else Texto.copy(alpha = 0.8f),
+                color = if (esperando.isNotEmpty()) cor else Texto.copy(alpha = 0.8f),
                 fontSize = 11.5.sp,
                 fontWeight = if (esperando.isNotEmpty()) FontWeight.SemiBold else FontWeight.Normal,
                 maxLines = 1,
@@ -259,6 +259,10 @@ private fun MembroConversa(c: Conversa, fixada: Boolean, esperando: List<Aviso>,
                 style = TextStyle(shadow = SombraTexto),
                 modifier = Modifier.padding(top = 3.dp),
             )
+        }
+        val naoLidas = esperando.sumOf { it.mensagens }
+        if (naoLidas > 0) {
+            SeloMatilha(naoLidas, Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 4.dp))
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             Text(
@@ -353,4 +357,20 @@ private fun TituloMatilha() {
         Text("Matilha", color = Texto, fontSize = 15.sp, fontWeight = FontWeight.Medium, style = TextStyle(shadow = SombraTexto), modifier = Modifier.padding(start = 8.dp))
         Box(Modifier.padding(start = 10.dp).width(26.dp).height(2.dp).clip(CircleShape).background(degradeH()))
     }
+}
+
+/** O numero de mensagens nao lidas em cima da foto (cresce para "99+" sem cortar). */
+@Composable
+private fun SeloMatilha(n: Int, modifier: Modifier = Modifier) {
+    val texto = if (n > 99) "99+" else n.toString()
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .height(19.dp)
+            .widthIn(min = 19.dp)
+            .clip(CircleShape)
+            .background(degrade())
+            .border(1.5.dp, Fundo, CircleShape)
+            .padding(horizontal = 5.dp),
+    ) { Text(texto, color = Fundo, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, maxLines = 1) }
 }

@@ -270,6 +270,10 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     val modoLista: StateFlow<String> = _modoLista.asStateFlow()
     fun definirModoLista(v: String) { preferencias.modoLista = v; _modoLista.value = v }
 
+    private val _matilhaOrganizar = MutableStateFlow(preferencias.matilhaOrganizar)
+    val matilhaOrganizar: StateFlow<Boolean> = _matilhaOrganizar.asStateFlow()
+    fun definirMatilhaOrganizar(v: Boolean) { preferencias.matilhaOrganizar = v; _matilhaOrganizar.value = v }
+
     private val _matilhaSoFixadas = MutableStateFlow(preferencias.matilhaSoFixadas)
     val matilhaSoFixadas: StateFlow<Boolean> = _matilhaSoFixadas.asStateFlow()
     fun definirMatilhaSoFixadas(v: Boolean) { preferencias.matilhaSoFixadas = v; _matilhaSoFixadas.value = v }

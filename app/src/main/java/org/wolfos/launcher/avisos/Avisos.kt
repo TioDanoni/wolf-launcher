@@ -32,6 +32,8 @@ data class Aviso(
     val responder: Notification.Action? = null,
     /** A acao "Marcar como lida", se tiver. */
     val marcarLida: Notification.Action? = null,
+    /** Quantas mensagens nao lidas a notificacao junta (numa conversa, cada mensagem conta). */
+    val mensagens: Int = 1,
 )
 
 /** O clima que o app do tempo (Google, Samsung...) deixa na cortina: "Piracicaba: 23°". */
@@ -86,6 +88,17 @@ object Avisos {
                 pi.send()
             }
         }.isSuccess
+    }
+
+    /** Quantas mensagens a notificacao junta: as da conversa, as linhas do resumo ou o numero que o app pos. */
+    private fun quantasMensagens(n: Notification): Int {
+        val e = n.extras
+        val daConversa = runCatching {
+            @Suppress("DEPRECATION")
+            e.getParcelableArray(Notification.EXTRA_MESSAGES)?.size
+        }.getOrNull() ?: 0
+        val linhas = e.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.size ?: 0
+        return maxOf(daConversa, linhas, n.number, 1)
     }
 
     /** A ultima mensagem de uma notificacao de conversa: (quem mandou, texto). */
@@ -197,6 +210,7 @@ object Avisos {
             abrir = sbn.notification.contentIntent,
             atalho = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) sbn.notification.shortcutId else null,
             responder = acaoDeResponder(sbn.notification),
+            mensagens = quantasMensagens(sbn.notification),
             marcarLida = sbn.notification.actions?.firstOrNull { a ->
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && a.semanticAction == Notification.Action.SEMANTIC_ACTION_MARK_AS_READ
             },

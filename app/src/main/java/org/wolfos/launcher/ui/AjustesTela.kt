@@ -107,6 +107,7 @@ class EstadoAjustes(
     val fonteMatilha: FonteMatilha,
     val fontesMatilha: List<FonteMatilha>,
     val matilhaSoFixadas: Boolean,
+    val matilhaOrganizar: Boolean,
     val mostrarPlayer: Boolean,
     /** O que o player esta vendo agora ("tocando: X (app)", "nenhum app de musica aberto"...). */
     val detalhePlayer: String,
@@ -157,6 +158,7 @@ class AcoesAjustes(
     val tipoMatilha: (TipoMatilha) -> Unit,
     val fonteMatilha: (FonteMatilha) -> Unit,
     val matilhaSoFixadas: (Boolean) -> Unit,
+    val matilhaOrganizar: (Boolean) -> Unit,
     val mostrarPlayer: (Boolean) -> Unit,
     val modoLista: (String) -> Unit,
     val tempoLigado: (Boolean) -> Unit,
@@ -466,6 +468,19 @@ private fun AbaMatilha(estado: EstadoAjustes, acoes: AcoesAjustes) {
         else "As fixadas primeiro; depois quem está esperando resposta e as que você mais usa.",
         color = TextoFraco, fontSize = 12.5.sp, modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 4.dp),
     )
+    SecaoMenu("Mensagens")
+    LinhaMenu(
+        Icons.Outlined.NotificationsNone, "Organizar pelas notificações",
+        "quem tem mensagem esperando vai para a frente (a mais nova primeiro); o número mostra quantas",
+        fim = { ChaveWolf(estado.matilhaOrganizar, acoes.matilhaOrganizar) },
+    ) { acoes.matilhaOrganizar(!estado.matilhaOrganizar) }
+    if (!estado.avisosPermitidos) {
+        LinhaMenu(
+            Icons.Outlined.WarningAmber, "Precisa do acesso às notificações",
+            "sem ele a Matilha não sabe quem está esperando (toque para permitir)",
+            aoTocar = acoes.permitirAvisos,
+        )
+    }
     if (estado.matilhaPeloWhatsapp) {
         SecaoMenu("Pessoas ou grupos")
         Pilulas(TipoMatilha.entries.map { it.titulo }, TipoMatilha.entries.indexOf(estado.tipoMatilha)) {

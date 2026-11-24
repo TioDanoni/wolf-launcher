@@ -341,7 +341,14 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
             if (a.titulo.isNotEmpty() && a.texto.isNotEmpty()) "${a.titulo}: ${a.texto}" else a.titulo + a.texto
         }
     }
-    val pessoas = remember(contatos, matilhaIds) { Matilha.pessoas(contatos, matilhaIds) }
+    val matilhaOrganizar by vm.matilhaOrganizar.collectAsStateWithLifecycle()
+    val pessoas = remember(contatos, matilhaIds, avisos, matilhaOrganizar) {
+        val lista = Matilha.pessoas(contatos, matilhaIds)
+        if (!matilhaOrganizar) lista
+        else lista.partition { Matilha.esperando(it, avisos).isNotEmpty() }.let { (com, sem) ->
+            com.sortedByDescending { p -> Matilha.esperando(p, avisos).maxOf { it.quando } } + sem
+        }
+    }
     val acoesAviso = AcoesAviso(
         abrir = { a ->
             val app = apps.firstOrNull { it.pacote == a.pacote }
@@ -461,8 +468,11 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         Conversas.comNomes(conversas.filter { it.pacote in fonteMatilha.pacotes || it.chave in fixadas }, contatos)
     }
     val usoConversas by vm.usoConversas.collectAsStateWithLifecycle()
-    val daMatilha = remember(conversasComNome, fixadas, tipoMatilha, avisos, usoConversas, matilhaSoFixadas) {
-        Conversas.matilha(conversasComNome, fixadas, tipoMatilha, avisos, usoConversas, soFixadas = matilhaSoFixadas)
+    val daMatilha = remember(conversasComNome, fixadas, tipoMatilha, avisos, usoConversas, matilhaSoFixadas, matilhaOrganizar) {
+        Conversas.matilha(
+            conversasComNome, fixadas, tipoMatilha, avisos, usoConversas,
+            soFixadas = matilhaSoFixadas, organizarPorAvisos = matilhaOrganizar,
+        )
     }
     val acoesComando = AcoesComando(
         ligar = { if (Contatos.ligar(contexto, it)) voltarAoInicio() },
@@ -657,6 +667,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         modoNoite = modoNoite,
                         janelaNoite = janelaNoite,
                         matilhaSoFixadas = matilhaSoFixadas,
+                        matilhaOrganizar = matilhaOrganizar,
                         mostrarMarca = mostrarMarca,
                         escuroInicio = escuroInicio,
                         gestos = gestos,
@@ -704,6 +715,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         adicionarFavorito = vm::adicionarFavorito,
                         tirarFavorito = vm::alternarFavorito,
                         matilhaSoFixadas = vm::definirMatilhaSoFixadas,
+                        matilhaOrganizar = vm::definirMatilhaOrganizar,
                         mostrarMarca = vm::definirMostrarMarca,
                         escuroInicio = vm::definirEscuroInicio,
                         gesto = vm::definirGesto,

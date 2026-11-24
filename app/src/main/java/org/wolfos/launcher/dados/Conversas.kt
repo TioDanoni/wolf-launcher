@@ -186,6 +186,27 @@ object Conversas {
         uso: Map<String, UsoConversa> = emptyMap(),
         maximo: Int = 10,
         soFixadas: Boolean = false,
+        /** Quem tem mensagem esperando vai para a frente (a mais recente primeiro). */
+        organizarPorAvisos: Boolean = false,
+    ): List<Conversa> {
+        val lista = montarMatilha(todas, fixadas, tipo, avisos, uso, maximo, soFixadas)
+        if (!organizarPorAvisos) return lista
+        // quem esta esperando vem primeiro (a mensagem mais nova antes); o resto fica como estava
+        val (comAviso, semAviso) = lista.partition { esperando(it, avisos).isNotEmpty() }
+        return comAviso.sortedByDescending { c -> esperando(c, avisos).maxOf { it.quando } } + semAviso
+    }
+
+    /** Quantas mensagens a conversa tem esperando. */
+    fun naoLidas(c: Conversa, avisos: List<Aviso>): Int = esperando(c, avisos).sumOf { it.mensagens }
+
+    private fun montarMatilha(
+        todas: List<Conversa>,
+        fixadas: List<String>,
+        tipo: TipoMatilha,
+        avisos: List<Aviso>,
+        uso: Map<String, UsoConversa>,
+        maximo: Int,
+        soFixadas: Boolean,
     ): List<Conversa> {
         val porChave = todas.associateBy { it.chave }
         val doTipo = { c: Conversa ->

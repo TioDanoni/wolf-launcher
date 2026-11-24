@@ -58,6 +58,11 @@ class Preferencias(contexto: Context) {
         get() = prefs.getString("modo_lista", null) ?: if (sugestoes) "FIXADOS_SUGESTOES" else "FIXADOS"
         set(v) = prefs.edit().putString("modo_lista", v).apply()
 
+    /** A Matilha se organiza pelas notificacoes: quem tem mensagem esperando vem primeiro. */
+    var matilhaOrganizar: Boolean
+        get() = prefs.getBoolean("matilha_organizar", true)
+        set(v) = prefs.edit().putBoolean("matilha_organizar", v).apply()
+
     /** A Matilha so com as conversas fixadas (sem as recentes). */
     var matilhaSoFixadas: Boolean
         get() = prefs.getBoolean("matilha_so_fixadas", false)
