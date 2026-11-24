@@ -558,7 +558,6 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         editarVerbo = { verboEditando = it.name },
                         doisToques = vm::definirDoisToques,
                         ligarBloqueio = { Bloqueio.pedirPermissao(contexto) },
-        permitirAvisos = if (avisosPermitidos) null else ({ Avisos.pedirPermissao(contexto) }),
                         esconderVerbo = vm::esconderVerbo,
                         mostrarApp = { vm.esconder(it, false) },
                         abrirCodigo = { Apps.abrirTela(contexto, Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/TioDanoni/wolf-launcher"))) },
