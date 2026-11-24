@@ -128,7 +128,7 @@ object Tocando {
         val m = c?.metadata
         val titulo = (m?.getString(MediaMetadata.METADATA_KEY_TITLE)?.takeIf { it.isNotBlank() }
             ?: m?.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE)?.takeIf { it.isNotBlank() })
-        if (c == null || titulo == null) {
+        if (c == null || m == null || titulo == null) {
             if (c != null) _detalhe.value = "${c.packageName} sem nome de música (ainda)"
             _musica.value = null
             return
