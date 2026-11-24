@@ -117,6 +117,8 @@ class EstadoAjustes(
     val compromissos: Boolean,
     val fundoAnimado: Boolean,
     val paleta: Paleta,
+    /** As cores que o launcher tirou do wallpaper (para a amostra do "Do wallpaper"). */
+    val coresWallpaper: Pair<Color, Color>?,
     val estiloRelogio: EstiloRelogio,
     /** ORIGINAL, LINHA, PALETA, CINZA ou "pack:<pacote>". */
     val estiloIcones: String,
@@ -362,7 +364,12 @@ private fun AbaVisual(estado: EstadoAjustes, acoes: AcoesAjustes) {
                     Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(Brush.linearGradient(listOf(p.primaria, p.secundaria)))
+                        .background(
+                            Brush.linearGradient(
+                                if (p == Paleta.WALLPAPER && estado.coresWallpaper != null) estado.coresWallpaper.toList()
+                                else listOf(p.primaria, p.secundaria),
+                            ),
+                        )
                         .border(if (marcada) 3.dp else 0.dp, if (marcada) Texto else Color.Transparent, CircleShape),
                 )
                 Text(

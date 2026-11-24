@@ -7,6 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -55,18 +56,30 @@ fun degrade(): Brush = Brush.linearGradient(listOf(MaterialTheme.colorScheme.pri
 fun degradeH(): Brush = Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondary))
 
 @Composable
-fun WolfTema(noite: Boolean = false, paleta: Paleta = Paleta.LOBO, conteudo: @Composable () -> Unit) {
+fun WolfTema(
+    noite: Boolean = false,
+    paleta: Paleta = Paleta.WALLPAPER,
+    /** As cores tiradas do wallpaper (nulo enquanto nao leu, ou no Android 8.0). */
+    doWallpaper: Pair<Color, Color>? = null,
+    conteudo: @Composable () -> Unit,
+) {
     val contexto = LocalContext.current
     val (primaria, secundaria) = when {
         noite -> NOITE
+        // as cores do proprio wallpaper; sem elas, as do Android 12+; sem nada, as do Lobo
+        paleta == Paleta.WALLPAPER && doWallpaper != null -> doWallpaper
         paleta == Paleta.WALLPAPER && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
             dynamicDarkColorScheme(contexto).let { it.primary to it.tertiary }
+        paleta == Paleta.WALLPAPER -> Paleta.LOBO.primaria to Paleta.LOBO.secundaria
         else -> paleta.primaria to paleta.secundaria
     }
+    // a troca de cor (wallpaper novo, outra paleta, a noite chegando) e suave
+    val primariaAnimada by androidx.compose.animation.animateColorAsState(primaria, androidx.compose.animation.core.tween(700), label = "primaria")
+    val secundariaAnimada by androidx.compose.animation.animateColorAsState(secundaria, androidx.compose.animation.core.tween(700), label = "secundaria")
     MaterialTheme(
         colorScheme = darkColorScheme(
-            primary = primaria,
-            secondary = secundaria,
+            primary = primariaAnimada,
+            secondary = secundariaAnimada,
             background = Fundo,
             surface = Superficie,
             surfaceContainer = Superficie,

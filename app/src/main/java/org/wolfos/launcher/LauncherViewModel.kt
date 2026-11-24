@@ -45,6 +45,7 @@ import org.wolfos.launcher.dados.Matilha
 import org.wolfos.launcher.dados.Cidade
 import org.wolfos.launcher.dados.AcaoGesto
 import org.wolfos.launcher.dados.Gesto
+import org.wolfos.launcher.dados.CoresWallpaper
 import org.wolfos.launcher.dados.Padrao
 import org.wolfos.launcher.dados.PacoteIcones
 import org.wolfos.launcher.ui.EstiloRelogio
@@ -281,7 +282,21 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     val gestos: StateFlow<Map<Gesto, AcaoGesto>> = _gestos.asStateFlow()
     fun definirGesto(g: Gesto, a: AcaoGesto) { preferencias.definirGesto(g, a); _gestos.value = preferencias.gestos() }
 
-    private val _paleta = MutableStateFlow(Paleta.entries.firstOrNull { it.name == preferencias.paleta } ?: Paleta.LOBO)
+    /** As cores do wallpaper (para a paleta "Do wallpaper"); acompanha quando o wallpaper muda. */
+    val coresWallpaper: StateFlow<Pair<androidx.compose.ui.graphics.Color, androidx.compose.ui.graphics.Color>?> =
+        CoresWallpaper.cores.also { CoresWallpaper.iniciar(app) }
+
+    private val _paleta = MutableStateFlow(
+        run {
+            // a 0.21 passa a moldar as cores pelo wallpaper: aplica uma vez
+            val p = app.getSharedPreferences("ajustes", android.content.Context.MODE_PRIVATE)
+            if (!p.getBoolean("paleta_021", false)) {
+                p.edit().putBoolean("paleta_021", true).apply()
+                preferencias.paleta = Paleta.WALLPAPER.name
+            }
+            Paleta.entries.firstOrNull { it.name == preferencias.paleta } ?: Paleta.WALLPAPER
+        },
+    )
     val paleta: StateFlow<Paleta> = _paleta.asStateFlow()
 
     private val _estiloRelogio = MutableStateFlow(

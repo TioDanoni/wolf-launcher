@@ -244,12 +244,6 @@ private fun MembroConversa(c: Conversa, fixada: Boolean, esperando: List<Aviso>,
                     .padding(5.dp),
             ) {
                 FotoConversa(c, 46.dp)
-                if (fixada) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.align(Alignment.BottomEnd).size(16.dp).clip(CircleShape).background(cor),
-                    ) { Text("•", color = Fundo, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
-                }
                 if (esperando.size > 1) {
                     Selo(esperando.size, Modifier.align(Alignment.TopEnd).size(18.dp))
                 }

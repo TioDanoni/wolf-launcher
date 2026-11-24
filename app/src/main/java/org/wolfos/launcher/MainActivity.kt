@@ -110,9 +110,10 @@ class MainActivity : ComponentActivity() {
             val modoNoite by vm.modoNoite.collectAsStateWithLifecycle()
             val janela by vm.janelaNoite.collectAsStateWithLifecycle()
             val paleta by vm.paleta.collectAsStateWithLifecycle()
+            val coresWallpaper by vm.coresWallpaper.collectAsStateWithLifecycle()
             val momento = agora()
             val noite = modoNoite && Ritmo.ehNoite(momento.hour * 60 + momento.minute, janela.first, janela.second)
-            WolfTema(noite, paleta) { Tela(vm, home, noite, momento.hour) }
+            WolfTema(noite, paleta, coresWallpaper) { Tela(vm, home, noite, momento.hour) }
         }
     }
 
@@ -637,6 +638,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         estiloIcones = vm.estiloIcones.collectAsStateWithLifecycle().value,
                         pacotesIcones = vm.pacotesIcones.collectAsStateWithLifecycle().value,
                         paleta = vm.paleta.collectAsStateWithLifecycle().value,
+                        coresWallpaper = vm.coresWallpaper.collectAsStateWithLifecycle().value,
                         ritmo = ritmo,
                         modoNoite = modoNoite,
                         janelaNoite = janelaNoite,

@@ -33,7 +33,7 @@ class Preferencias(contexto: Context) {
 
     /** A paleta de cores (nome do enum Paleta). */
     var paleta: String
-        get() = prefs.getString("paleta", "LOBO") ?: "LOBO"
+        get() = prefs.getString("paleta", "WALLPAPER") ?: "WALLPAPER"
         set(v) = prefs.edit().putString("paleta", v).apply()
 
     /** O estilo do relogio (nome do enum EstiloRelogio). */
