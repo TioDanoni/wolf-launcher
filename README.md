@@ -49,8 +49,8 @@ Kotlin + Jetpack Compose. Pacote `org.wolfos.launcher`, Android 8.0 (API 26) ou 
 ## Atualizações
 
 Cada tag `v*` no GitHub vira uma Release com o APK assinado (`.github/workflows/apk.yml`).
-O launcher consulta a última Release a cada 12 h (e ao voltar para a tela, se faz mais de
-6 h), avisa na tela inicial e instala por cima — favoritos e ajustes continuam. Na
+O launcher consulta a última Release a cada 3 h (e ao voltar para a tela, se faz mais de
+20 min), avisa na tela inicial e instala por cima — favoritos e ajustes continuam. Na
 primeira vez o Android pede para permitir "instalar apps desta fonte"; do Android 12 em
 diante, as próximas atualizações nem pedem confirmação.
 

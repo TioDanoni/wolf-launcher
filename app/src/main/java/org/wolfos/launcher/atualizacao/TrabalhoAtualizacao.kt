@@ -23,7 +23,7 @@ class TrabalhoAtualizacao(contexto: Context, params: WorkerParameters) : Corouti
 
     companion object {
         fun agendar(contexto: Context) {
-            val pedido = PeriodicWorkRequestBuilder<TrabalhoAtualizacao>(12, TimeUnit.HOURS)
+            val pedido = PeriodicWorkRequestBuilder<TrabalhoAtualizacao>(3, TimeUnit.HOURS)
                 .setConstraints(
                     Constraints.Builder()
                         .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -32,7 +32,7 @@ class TrabalhoAtualizacao(contexto: Context, params: WorkerParameters) : Corouti
                 )
                 .build()
             WorkManager.getInstance(contexto)
-                .enqueueUniquePeriodicWork("atualizacao", ExistingPeriodicWorkPolicy.KEEP, pedido)
+                .enqueueUniquePeriodicWork("atualizacao", ExistingPeriodicWorkPolicy.UPDATE, pedido)
         }
     }
 }

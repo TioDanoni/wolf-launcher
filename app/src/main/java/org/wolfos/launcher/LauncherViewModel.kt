@@ -269,7 +269,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             Atualizador.aoVoltar(getApplication())
             val passou = System.currentTimeMillis() - preferencias.ultimaVerificacao
-            if (passou > SEIS_HORAS) Atualizador.verificar(getApplication())
+            if (passou > INTERVALO_VERIFICACAO) Atualizador.verificar(getApplication())
         }
     }
 
@@ -306,6 +306,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private companion object {
-        const val SEIS_HORAS = 6 * 60 * 60 * 1000L
+        // uma consulta pequena ao GitHub; o limite dele (60 por hora) fica longe
+        const val INTERVALO_VERIFICACAO = 20 * 60 * 1000L
     }
 }
