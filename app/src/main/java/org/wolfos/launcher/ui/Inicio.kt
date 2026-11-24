@@ -1,5 +1,7 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -211,12 +213,19 @@ fun Inicio(
                     )
                 },
         ) {
-            Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 18.dp)) {
+            BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()) {
+            // tela baixa (ou fonte grande no sistema): o relogio encolhe para caber tudo
+            val escalaRelogio = when {
+                maxHeight < 640.dp -> 0.7f
+                maxHeight < 740.dp -> 0.82f
+                else -> 1f
+            }
+            Column(Modifier.fillMaxSize().padding(horizontal = 18.dp)) {
                 Marca(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp))
                 if (estiloRelogio == EstiloRelogio.CLASSICO) {
                     Relogio(clima.takeIf { tempo == null }, Modifier.padding(start = 6.dp, top = 22.dp))
                 } else {
-                    RelogioGrande(estiloRelogio, Modifier.padding(start = 4.dp, top = 18.dp))
+                    RelogioGrande(estiloRelogio, Modifier.padding(start = 4.dp, top = 16.dp), escalaRelogio)
                 }
                 tempo?.let { Box(Modifier.padding(start = 2.dp, top = 10.dp).entrada(1)) { it() } }
                 compromissos?.let { Box(Modifier.padding(top = 12.dp).entrada(2)) { it() } }
@@ -230,7 +239,7 @@ fun Inicio(
                     textoAtualizacao(atualizacao)?.let { (simbolo, texto, botao) -> FaixaLimpa(simbolo, texto, botao, acoes.atualizar) }
                 }
                 // os verbos ficam embaixo, perto do polegar; se nao couberem, rolam
-                Box(Modifier.weight(1f).fillMaxWidth()) {
+                Box(Modifier.weight(1f).fillMaxWidth().clipToBounds()) {
                     Column(
                         verticalArrangement = Arrangement.Bottom,
                         modifier = Modifier.align(Alignment.BottomStart).verticalScroll(rememberScrollState()),
@@ -265,6 +274,7 @@ fun Inicio(
                 Spacer(Modifier.height(14.dp))
                 BarraBusca(noite) { acoes.abrirComando("") }
                 Spacer(Modifier.height(10.dp))
+            }
             }
 
         }
