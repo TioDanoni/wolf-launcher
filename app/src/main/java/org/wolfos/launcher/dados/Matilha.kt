@@ -29,7 +29,8 @@ class Matilha(contexto: Context) {
                 val porId = contatos.associateBy { it.id }
                 return escolhidos.mapNotNull { porId[it] }
             }
-            return contatos.filter { it.favorito }.take(5)
+            // contato sem nome de verdade ("+55 51 9...") nao entra sozinho
+            return contatos.filter { c -> c.favorito && c.nome.any(Char::isLetter) }.take(5)
         }
 
         /** As notificacoes que parecem ser desta pessoa (pelo nome no titulo). */

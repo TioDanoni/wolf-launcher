@@ -1,5 +1,26 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
+import org.wolfos.launcher.avisos.Musica
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -102,6 +123,11 @@ fun Inicio(
     /** O proximo compromisso (de dia) ou o despertador (a noite). */
     faixaAgora: FaixaInfo?,
     noite: Boolean,
+    /** Os apps que aparecem ao lado de cada verbo (os mais usados); vazio = so texto. */
+    iconesDosVerbos: Map<Verbo, List<AppInfo>>,
+    /** A musica de agora (aparece no Ouvir). */
+    musica: Musica?,
+    acoesMusica: AcoesMusica,
     acoes: AcoesInicio,
     /** A fileira da Matilha (ou nada), logo acima da barra de comando. */
     matilha: @Composable () -> Unit,
@@ -144,7 +170,17 @@ fun Inicio(
                         verticalArrangement = Arrangement.Bottom,
                         modifier = Modifier.align(Alignment.BottomStart).verticalScroll(rememberScrollState()),
                     ) {
-                        for (v in verbos.keys) LinhaVerbo(v, previas[v]) { acoes.abrirVerbo(v) }
+                        verbos.keys.forEachIndexed { i, v ->
+                            LinhaVerbo(
+                                verbo = v,
+                                previa = previas[v],
+                                icones = iconesDosVerbos[v].orEmpty(),
+                                musica = musica.takeIf { v == Verbo.OUVIR },
+                                indice = i,
+                                acoesMusica = acoesMusica,
+                                aoApp = acoes.abrirApp,
+                            ) { acoes.abrirVerbo(v) }
+                        }
                         if (verbos.isEmpty()) {
                             Text("Lendo seus apps…", color = TextoFraco, modifier = Modifier.padding(8.dp))
                         }
@@ -194,35 +230,141 @@ fun Inicio(
     }
 }
 
-/** Um verbo na tela inicial; com algo esperando, fica mais forte e mostra a previa. */
+/** Os controles da musica de agora. */
+class AcoesMusica(
+    val tocarOuPausar: () -> Unit,
+    val proxima: () -> Unit,
+    val abrir: () -> Unit,
+)
+
+/**
+ * Um verbo na tela inicial. Com algo esperando, fica mais forte e mostra a previa; no
+ * Ouvir, a musica de agora com a capa e os controles; nos outros, os apps que voce mais
+ * usa daquele verbo (tocar abre direto). Entra com um deslize suave, um depois do outro.
+ */
 @Composable
-private fun LinhaVerbo(verbo: Verbo, previa: Previa?, aoTocar: () -> Unit) {
+private fun LinhaVerbo(
+    verbo: Verbo,
+    previa: Previa?,
+    icones: List<AppInfo>,
+    musica: Musica?,
+    indice: Int,
+    acoesMusica: AcoesMusica,
+    aoApp: (AppInfo) -> Unit,
+    aoTocar: () -> Unit,
+) {
     val cor = MaterialTheme.colorScheme.primary
-    Column(
-        Modifier
+    val ativo = previa != null || musica?.tocando == true
+    val aparecer = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        delay(indice * 45L)
+        aparecer.animateTo(1f, tween(420, easing = FastOutSlowInEasing))
+    }
+    val toque = remember { MutableInteractionSource() }
+    val apertado by toque.collectIsPressedAsState()
+    val escala by animateFloatAsState(if (apertado) 0.97f else 1f, label = "escala")
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = aoTocar)
-            .padding(horizontal = 8.dp, vertical = 5.dp),
+            .graphicsLayer {
+                alpha = aparecer.value
+                translationY = (1f - aparecer.value) * 28.dp.toPx()
+                scaleX = escala
+                scaleY = escala
+            }
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(interactionSource = toque, indication = null, onClick = aoTocar)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                verbo.titulo,
-                fontSize = 34.sp,
-                fontWeight = if (previa != null) FontWeight.Medium else FontWeight.Light,
-                color = Texto,
-            )
-            if (previa != null) {
-                Box(Modifier.padding(start = 10.dp, bottom = 14.dp).size(8.dp).clip(CircleShape).background(cor))
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    verbo.titulo,
+                    fontSize = 36.sp,
+                    fontWeight = if (ativo) FontWeight.SemiBold else FontWeight.Normal,
+                    color = Texto,
+                    style = TextStyle(shadow = SombraTexto),
+                )
+                when {
+                    musica?.tocando == true -> Equalizador(cor, Modifier.padding(start = 12.dp, bottom = 4.dp))
+                    previa != null -> Box(Modifier.padding(start = 10.dp, bottom = 14.dp).size(8.dp).clip(CircleShape).background(cor))
+                }
+            }
+            val sub = when {
+                musica != null -> (if (musica.tocando) "♪ " else "⏸ ") + musica.titulo + (if (musica.artista.isNotBlank()) " · " + musica.artista else "")
+                previa != null -> previa.texto + if (previa.total > 1) "  ·  +${previa.total - 1}" else ""
+                else -> null
+            }
+            if (sub != null) {
+                Text(
+                    sub,
+                    color = cor,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = TextStyle(shadow = SombraTexto),
+                    modifier = Modifier.padding(start = 2.dp),
+                )
             }
         }
-        if (previa != null) {
-            Text(
-                previa.texto + if (previa.total > 1) "  ·  +${previa.total - 1}" else "",
-                color = cor,
-                fontSize = 13.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 2.dp),
+        if (musica != null) {
+            ControlesMusica(musica, acoesMusica)
+        } else if (icones.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (app in icones) {
+                    IconeApp(app, 34.dp, Modifier.clip(RoundedCornerShape(10.dp)).clickable { aoApp(app) })
+                }
+            }
+        }
+    }
+}
+
+/** Capa, tocar/pausar e proxima, ao lado do Ouvir. */
+@Composable
+private fun ControlesMusica(musica: Musica, acoes: AcoesMusica) {
+    val cor = MaterialTheme.colorScheme.primary
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        musica.capa?.let {
+            Image(
+                it, contentDescription = null, contentScale = ContentScale.Crop,
+                modifier = Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)).clickable(onClick = acoes.abrir),
+            )
+        }
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.padding(start = 8.dp).size(42.dp).clip(CircleShape).background(cor).clickable(onClick = acoes.tocarOuPausar),
+        ) { Text(if (musica.tocando) "❚❚" else "▶", color = Fundo, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.size(42.dp).clip(CircleShape).clickable(onClick = acoes.proxima),
+        ) { Text("⏭", color = Texto, fontSize = 18.sp, style = TextStyle(shadow = SombraTexto)) }
+    }
+}
+
+/** Tres barrinhas que dancam enquanto a musica toca. */
+@Composable
+private fun Equalizador(cor: Color, modifier: Modifier = Modifier) {
+    val t = rememberInfiniteTransition(label = "eq")
+    val alturas = listOf(520, 380, 640).map { duracao ->
+        t.animateFloat(
+            initialValue = 0.25f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(duracao, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+            label = "barra",
+        )
+    }
+    Canvas(modifier.size(width = 20.dp, height = 18.dp)) {
+        val largura = size.width / 5
+        alturas.forEachIndexed { i, a ->
+            val h = size.height * a.value
+            drawRoundRect(
+                cor,
+                topLeft = Offset(i * largura * 2, size.height - h),
+                size = Size(largura, h),
+                cornerRadius = CornerRadius(largura / 2),
             )
         }
     }
@@ -232,7 +374,7 @@ private fun LinhaVerbo(verbo: Verbo, previa: Previa?, aoTocar: () -> Unit) {
 private fun Relogio(modifier: Modifier = Modifier) {
     val momento = agora()
     Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
-        Text(momento.format(HORA), fontSize = 56.sp, fontWeight = FontWeight.ExtraLight, color = Texto)
+        Text(momento.format(HORA), fontSize = 60.sp, fontWeight = FontWeight.Light, color = Texto, style = TextStyle(shadow = SombraTexto))
         Spacer(Modifier.width(12.dp))
         Column {
             Text(

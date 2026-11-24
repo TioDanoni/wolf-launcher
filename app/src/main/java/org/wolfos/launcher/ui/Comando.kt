@@ -1,5 +1,17 @@
 package org.wolfos.launcher.ui
 
+import android.graphics.BitmapFactory
+import android.net.Uri
+import android.util.LruCache
+import androidx.compose.foundation.Image
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -197,7 +209,7 @@ private fun LinhaResultado(r: Resultado, primeiro: Boolean, acoesApp: AcoesApp, 
         ) {
             when (r) {
                 is Resultado.App -> IconeApp(r.app, 34.dp)
-                is Resultado.Pessoa -> Avatar(r.contato.nome)
+                is Resultado.Pessoa -> Avatar(r.contato.nome, foto = r.contato.foto)
                 is Resultado.Feito -> Simbolo(r.acao.simbolo)
                 Resultado.Ajustes -> Simbolo("⚙")
                 is Resultado.Web -> Simbolo("⌕")
@@ -231,15 +243,40 @@ private fun Simbolo(s: String) {
     ) { Text(s, color = MaterialTheme.colorScheme.primary, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
 }
 
-/** O circulo com a inicial da pessoa. */
+/** As cores das pessoas sem foto (cada nome cai sempre na mesma). */
+private val CORES_PESSOAS = listOf(
+    Color(0xFFF5A432), Color(0xFF4C8DFF), Color(0xFF3DD68C), Color(0xFFB98CFF),
+    Color(0xFFFF6B81), Color(0xFF34C6D3), Color(0xFFF5D547),
+)
+
+fun corDaPessoa(nome: String): Color = CORES_PESSOAS[(nome.trim().lowercase().hashCode() and 0x7fffffff) % CORES_PESSOAS.size]
+
+/** Fotos da agenda, carregadas quando aparecem e guardadas num cache pequeno. */
+private object Fotos {
+    val cache = LruCache<String, ImageBitmap>(40)
+}
+
+/** A pessoa: a foto da agenda ou um circulo colorido com a inicial. */
 @Composable
-fun Avatar(nome: String, tamanho: Dp = 34.dp) {
-    val cor = MaterialTheme.colorScheme.primary
-    Box(
+fun Avatar(nome: String, tamanho: Dp = 34.dp, foto: String? = null) {
+    val contexto = LocalContext.current
+    val imagem by produceState(foto?.let { Fotos.cache.get(it) }, foto) {
+        if (value == null && foto != null) {
+            value = withContext(Dispatchers.IO) {
+                runCatching {
+                    contexto.contentResolver.openInputStream(Uri.parse(foto))?.use { BitmapFactory.decodeStream(it) }?.asImageBitmap()
+                }.getOrNull()
+            }?.also { Fotos.cache.put(foto, it) }
+        }
+    }
+    val cor = corDaPessoa(nome)
+    val m = Modifier.size(tamanho).clip(CircleShape)
+    imagem?.let { Image(it, contentDescription = null, contentScale = ContentScale.Crop, modifier = m) } ?: Box(
         contentAlignment = Alignment.Center,
-        modifier = Modifier.size(tamanho).clip(CircleShape).background(cor.copy(alpha = 0.22f)),
+        modifier = m.background(cor.copy(alpha = 0.25f)),
     ) {
-        Text(nome.trim().firstOrNull()?.uppercase() ?: "?", color = cor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        val inicial = nome.trim().firstOrNull { it.isLetter() }?.uppercase() ?: "#"
+        Text(inicial, color = cor, fontSize = (tamanho.value * 0.42f).sp, fontWeight = FontWeight.Bold)
     }
 }
 

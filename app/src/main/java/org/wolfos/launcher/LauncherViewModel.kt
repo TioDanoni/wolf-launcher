@@ -17,6 +17,8 @@ import kotlinx.coroutines.withContext
 import org.wolfos.launcher.atualizacao.Atualizador
 import org.wolfos.launcher.avisos.Aviso
 import org.wolfos.launcher.avisos.Avisos
+import org.wolfos.launcher.avisos.Musica
+import org.wolfos.launcher.avisos.Tocando
 import org.wolfos.launcher.atualizacao.EstadoAtualizacao
 import org.wolfos.launcher.atualizacao.TrabalhoAtualizacao
 import org.wolfos.launcher.dados.Agenda
@@ -72,6 +74,16 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     /** Conta quantas vezes o uso mudou (para os verbos reordenarem). */
     private val _usoMudou = MutableStateFlow(0)
     val usoMudou: StateFlow<Int> = _usoMudou.asStateFlow()
+
+    val musica: StateFlow<Musica?> = Tocando.musica
+
+    private val _iconesNosVerbos = MutableStateFlow(preferencias.iconesNosVerbos)
+    val iconesNosVerbos: StateFlow<Boolean> = _iconesNosVerbos.asStateFlow()
+
+    fun definirIconesNosVerbos(valor: Boolean) {
+        preferencias.iconesNosVerbos = valor
+        _iconesNosVerbos.value = valor
+    }
 
     private val _mostrarMatilha = MutableStateFlow(preferencias.mostrarMatilha)
     val mostrarMatilha: StateFlow<Boolean> = _mostrarMatilha.asStateFlow()
@@ -198,6 +210,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     fun aoVoltar() {
         _ehPadrao.value = Padrao.ehPadrao(getApplication())
         _avisosPermitidos.value = Avisos.permitido(getApplication())
+        if (_avisosPermitidos.value) Tocando.iniciar(getApplication())
         // a agenda pode ter mudado (ou a permissao chegado) enquanto estava fora
         carregarContatos()
         carregarDia()

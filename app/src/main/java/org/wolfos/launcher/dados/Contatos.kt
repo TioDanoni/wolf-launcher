@@ -11,7 +11,14 @@ import androidx.core.content.ContextCompat
 
 /** Uma pessoa da agenda, com o numero principal. */
 @Immutable
-data class Contato(val id: Long, val nome: String, val numero: String, val favorito: Boolean) {
+data class Contato(
+    val id: Long,
+    val nome: String,
+    val numero: String,
+    val favorito: Boolean,
+    /** A foto pequena da agenda (content://...), se tiver. */
+    val foto: String? = null,
+) {
     val busca: String = semAcento(nome)
 }
 
@@ -31,6 +38,7 @@ object Contatos {
             ContactsContract.CommonDataKinds.Phone.NUMBER,
             ContactsContract.CommonDataKinds.Phone.STARRED,
             ContactsContract.CommonDataKinds.Phone.IS_SUPER_PRIMARY,
+            ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI,
         )
         val lista = mutableListOf<Contato>()
         val vistos = HashSet<Long>()
@@ -44,7 +52,7 @@ object Contatos {
                     val id = c.getLong(0)
                     val nome = c.getString(1) ?: continue
                     val numero = c.getString(2) ?: continue
-                    if (vistos.add(id)) lista += Contato(id, nome, numero, c.getInt(3) == 1)
+                    if (vistos.add(id)) lista += Contato(id, nome, numero, c.getInt(3) == 1, c.getString(5))
                 }
             }
         }

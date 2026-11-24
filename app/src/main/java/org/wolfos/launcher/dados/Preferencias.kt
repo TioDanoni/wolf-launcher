@@ -11,6 +11,11 @@ class Preferencias(contexto: Context) {
         get() = prefs.getBoolean("instalar_sozinho", true)
         set(v) = prefs.edit().putBoolean("instalar_sozinho", v).apply()
 
+    /** Os icones dos apps mais usados ao lado de cada verbo. */
+    var iconesNosVerbos: Boolean
+        get() = prefs.getBoolean("icones_nos_verbos", true)
+        set(v) = prefs.edit().putBoolean("icones_nos_verbos", v).apply()
+
     /** A fileira da Matilha na tela inicial. */
     var mostrarMatilha: Boolean
         get() = prefs.getBoolean("mostrar_matilha", true)

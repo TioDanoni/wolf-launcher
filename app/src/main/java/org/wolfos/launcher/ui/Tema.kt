@@ -20,6 +20,9 @@ val Superficie = Color(0xFF14161E)
 val Texto = Color(0xFFECEEF3)
 val TextoFraco = Color(0x99ECEEF3)
 
+/** Sombra leve para o texto ler bem sobre qualquer wallpaper. */
+val SombraTexto = androidx.compose.ui.graphics.Shadow(Color(0x99000000), Offset(0f, 2f), 10f)
+
 /** A cor do modo noite: mais calma que o laranja. */
 val Lilas = Color(0xFFB98CFF)
 
@@ -54,9 +57,20 @@ fun WolfTema(noite: Boolean = false, conteudo: @Composable () -> Unit) {
  * aurora do Hello). Parado de proposito: animar o fundo gastaria bateria a toa.
  */
 @Composable
-fun Aurora(acento: Color, escuro: Float, modifier: Modifier = Modifier) {
+fun Aurora(acento: Color, escuro: Float, modifier: Modifier = Modifier, degrade: Boolean = false) {
     Canvas(modifier.fillMaxSize()) {
-        drawRect(Fundo.copy(alpha = escuro))
+        if (degrade) {
+            // na tela inicial o wallpaper aparece em cima e escurece embaixo, onde ficam os verbos
+            drawRect(
+                Brush.verticalGradient(
+                    0f to Fundo.copy(alpha = escuro * 0.3f),
+                    0.45f to Fundo.copy(alpha = escuro * 0.75f),
+                    1f to Fundo.copy(alpha = (escuro * 2f).coerceAtMost(0.92f)),
+                )
+            )
+        } else {
+            drawRect(Fundo.copy(alpha = escuro))
+        }
         val raio = size.maxDimension * 0.75f
         drawCircle(
             brush = Brush.radialGradient(

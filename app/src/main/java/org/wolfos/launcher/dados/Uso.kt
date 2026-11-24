@@ -38,6 +38,24 @@ class Uso(contexto: Context) {
             .take(quantos)
             .map { it.first }
 
+    /** Os apps de cada verbo para mostrar ao lado dele: os mais abertos (pesando a hora de agora). */
+    fun destaques(verbos: Map<Verbo, List<AppInfo>>, hora: Int, quantos: Int): Map<Verbo, List<AppInfo>> {
+        val total = HashMap<String, Int>()
+        val agora = HashMap<String, Int>()
+        val perto = vizinhas(hora).toSet()
+        for ((k, v) in prefs.all) {
+            if (!k.startsWith("a|") || v !is Int) continue
+            val partes = k.split('|', limit = 3)
+            val chave = partes.getOrNull(2) ?: continue
+            total[chave] = (total[chave] ?: 0) + v
+            if (partes[1].toIntOrNull() in perto) agora[chave] = (agora[chave] ?: 0) + v
+        }
+        return verbos.mapValues { (_, apps) ->
+            // sem historico ainda: os primeiros do verbo (ordem alfabetica) ja dao cor
+            apps.sortedByDescending { (total[it.chave] ?: 0) + 3 * (agora[it.chave] ?: 0) }.take(quantos)
+        }
+    }
+
     fun hoje(): List<Abertura> {
         val inicio = inicioDoDia()
         return prefs.getString("hoje", "").orEmpty().lines().mapNotNull { l ->

@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.wolfos.launcher.avisos.Aviso
 import org.wolfos.launcher.avisos.Avisos
+import org.wolfos.launcher.avisos.Tocando
 import org.wolfos.launcher.dados.Agenda
 import org.wolfos.launcher.dados.AppInfo
 import org.wolfos.launcher.dados.Apps
@@ -53,6 +54,7 @@ import org.wolfos.launcher.dados.verboDe
 import org.wolfos.launcher.ui.AcoesApp
 import org.wolfos.launcher.ui.AcoesAviso
 import org.wolfos.launcher.ui.AcoesDia
+import org.wolfos.launcher.ui.AcoesMusica
 import org.wolfos.launcher.ui.DiaTela
 import org.wolfos.launcher.ui.FaixaInfo
 import org.wolfos.launcher.ui.Passado
@@ -133,6 +135,8 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     val temAgenda by vm.temAgenda.collectAsStateWithLifecycle()
     val alarme by vm.alarme.collectAsStateWithLifecycle()
     val usoMudou by vm.usoMudou.collectAsStateWithLifecycle()
+    val musica by vm.musica.collectAsStateWithLifecycle()
+    val iconesNosVerbos by vm.iconesNosVerbos.collectAsStateWithLifecycle()
 
     var tela by rememberSaveable { mutableStateOf(Telas.INICIO) }
     var busca by rememberSaveable { mutableStateOf("") }
@@ -183,8 +187,13 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     val todosOsVerbos = remember(apps, escolhas) { agrupar(apps, escolhas) }
     // a ordem do momento: hora do dia, costume da pessoa, fone, modo noite
     val pontos = remember(hora, usoMudou) { vm.uso.pontosDosVerbos(hora) }
-    val verbos = remember(todosOsVerbos, hora, pontos, fone, noite, ritmo) {
-        Ritmo.ordenar(todosOsVerbos, hora, pontos, fone, noite, ritmo)
+    // com musica tocando o Ouvir sobe, como com o fone
+    val tocando = musica?.tocando == true
+    val verbos = remember(todosOsVerbos, hora, pontos, fone, tocando, noite, ritmo) {
+        Ritmo.ordenar(todosOsVerbos, hora, pontos, fone || tocando, noite, ritmo)
+    }
+    val iconesDosVerbos = remember(verbos, hora, usoMudou, iconesNosVerbos) {
+        if (iconesNosVerbos) vm.uso.destaques(verbos, hora, 3) else emptyMap()
     }
     val previas = remember(avisos, apps, escolhas) { previasDosVerbos(avisos, apps, escolhas) }
     val pessoas = remember(contatos, matilhaIds) { Matilha.pessoas(contatos, matilhaIds) }
@@ -213,8 +222,20 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         abrirDia = { vm.carregarDia(); tela = Telas.DIA },
     )
     val abrirAlarmes = { Apps.abrirTela(contexto, Intent(AlarmClock.ACTION_SHOW_ALARMS)); Unit }
+    val acoesMusica = AcoesMusica(
+        tocarOuPausar = Tocando::tocarOuPausar,
+        proxima = Tocando::proxima,
+        abrir = {
+            musica?.let { m -> apps.firstOrNull { it.pacote == m.pacote } }?.let(acoesApp.abrir)
+        },
+    )
     val faixaAgora = remember(noite, alarme, eventos, hora) {
-        faixaDoAgora(noite, alarme, eventos, abrirAlarmes, { Agenda.entrar(contexto, it) }, { Agenda.abrir(contexto, it) })
+        faixaDoAgora(
+            noite, alarme, eventos, abrirAlarmes,
+            criarAlarme = { Apps.abrirTela(contexto, Intent(AlarmClock.ACTION_SET_ALARM)) },
+            entrar = { Agenda.entrar(contexto, it) },
+            abrir = { Agenda.abrir(contexto, it) },
+        )
     }
     val acoesDia = AcoesDia(
         abrirApp = acoesApp.abrir,
@@ -263,7 +284,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     val escuro by animateFloatAsState(if (tela == Telas.INICIO) 0.45f else 0.88f, label = "escuro")
 
     Box(Modifier.fillMaxSize()) {
-        Aurora(MaterialTheme.colorScheme.primary, escuro)
+        Aurora(MaterialTheme.colorScheme.primary, escuro, degrade = tela == Telas.INICIO)
         AnimatedContent(
             targetState = tela,
             transitionSpec = {
@@ -277,7 +298,10 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
             label = "tela",
         ) { atual ->
             when {
-                atual == Telas.INICIO -> Inicio(apps, verbos, atualizacao, ehPadrao, previas, faixaAgora, noite, acoesInicio) {
+                atual == Telas.INICIO -> Inicio(
+                    apps, verbos, atualizacao, ehPadrao, previas, faixaAgora, noite,
+                    iconesDosVerbos, musica, acoesMusica, acoesInicio,
+                ) {
                     if (mostrarMatilha) FileiraMatilha(pessoas, avisos, temContatos, acoesPessoa)
                 }
                 atual == Telas.DIA -> {
@@ -297,7 +321,14 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                     }
                     DiaTela(antes, costume, eventos, alarme, temAgenda, acoesDia)
                 }
-                atual == Telas.GAVETA -> Gaveta(apps, acoesApp, busca) { busca = it }
+                atual == Telas.GAVETA -> {
+                    val porChave = remember(apps) { apps.associateBy { it.chave } }
+                    val recentes = remember(usoMudou, apps) {
+                        vm.uso.hoje().asReversed().mapNotNull { porChave[it.chave] }.distinct().take(5)
+                    }
+                    val contagem = remember(avisos) { avisos.groupingBy { it.pacote }.eachCount() }
+                    Gaveta(apps, acoesApp, busca, { busca = it }, recentes, contagem)
+                }
                 atual == Telas.COMANDO -> Comando(
                     apps = apps,
                     contatos = contatos,
@@ -324,6 +355,8 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                     },
                     mostrarMatilha = mostrarMatilha,
                     aoMostrarMatilha = vm::definirMostrarMatilha,
+                    iconesNosVerbos = iconesNosVerbos,
+                    aoIconesNosVerbos = vm::definirIconesNosVerbos,
                     ritmo = ritmo,
                     aoRitmo = vm::definirRitmo,
                     modoNoite = modoNoite,
@@ -368,6 +401,7 @@ private fun faixaDoAgora(
     alarme: Long?,
     eventos: List<Evento>,
     abrirAlarmes: () -> Unit,
+    criarAlarme: () -> Unit,
     entrar: (Evento) -> Unit,
     abrir: (Evento) -> Unit,
 ): FaixaInfo? {
@@ -378,6 +412,7 @@ private fun faixaDoAgora(
         val texto = "Despertador %02d:%02d · %d h %02d de sono".format(hora.hour, hora.minute, sono / 60, sono % 60)
         return FaixaInfo("⏰", texto, "Ver", abrirAlarmes)
     }
+    if (noite) return FaixaInfo("⏰", "Nenhum despertador marcado", "Criar", criarAlarme)
     val e = eventos.firstOrNull { !it.diaInteiro && it.inicio - agora < 3 * 3_600_000L } ?: return null
     val quando = if (e.inicio <= agora) "agora" else quandoFalta(e.inicio, agora)
     return if (e.link != null) FaixaInfo("◷", "${e.titulo} · $quando", "Entrar") { entrar(e) }

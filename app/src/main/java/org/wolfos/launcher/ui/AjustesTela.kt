@@ -43,6 +43,8 @@ fun AjustesTela(
     aoInformacoesDoLauncher: () -> Unit,
     mostrarMatilha: Boolean,
     aoMostrarMatilha: (Boolean) -> Unit,
+    iconesNosVerbos: Boolean,
+    aoIconesNosVerbos: (Boolean) -> Unit,
     ritmo: Boolean,
     aoRitmo: (Boolean) -> Unit,
     modoNoite: Boolean,
@@ -56,9 +58,10 @@ fun AjustesTela(
         Cabecalho("Ajustes", aoFechar)
 
         Grupo("Tela inicial")
+        Chave("Ícones ao lado dos verbos", "os apps que você mais usa de cada verbo, para abrir direto", iconesNosVerbos, aoIconesNosVerbos)
         Chave("Matilha", "as pessoas no polegar (toque no + para escolher)", mostrarMatilha, aoMostrarMatilha)
         if (avisosPermitidos) {
-            Linha("Prévias das notificações", "ligadas: os verbos e a Matilha mostram quem está esperando", aoTocar = aoPermitirAvisos)
+            Linha("Prévias das notificações", "ligadas: os verbos e a Matilha mostram quem está esperando, e o Ouvir, a música", aoTocar = aoPermitirAvisos)
         } else {
             Linha("Prévias das notificações", "tocar para permitir o acesso às notificações", aoTocar = aoPermitirAvisos)
             Linha(

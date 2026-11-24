@@ -1,5 +1,11 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -84,21 +90,22 @@ private fun Membro(pessoa: Contato, esperando: List<Aviso>, acoes: AcoesPessoa) 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-                .width(62.dp)
+                .width(64.dp)
                 .clip(CircleShape)
                 .combinedClickable(onClick = { menu = true }, onLongClick = { menu = true }),
         ) {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(52.dp)
-                    .then(if (esperando.isNotEmpty()) Modifier.border(2.5.dp, cor, CircleShape) else Modifier)
-                    .padding(4.dp),
-            ) { Avatar(pessoa.nome, 44.dp) }
+                    .size(56.dp)
+                    .then(if (esperando.isNotEmpty()) Modifier.anelPulsando(cor) else Modifier)
+                    .padding(5.dp),
+            ) { Avatar(pessoa.nome, 46.dp, pessoa.foto) }
             Text(
                 Matilha.primeiroNome(pessoa),
-                color = if (esperando.isNotEmpty()) Texto else TextoFraco,
+                color = if (esperando.isNotEmpty()) Texto else Texto.copy(alpha = 0.8f),
                 fontSize = 11.5.sp,
+                style = TextStyle(shadow = SombraTexto),
                 fontWeight = if (esperando.isNotEmpty()) FontWeight.SemiBold else FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -142,4 +149,17 @@ private fun Adicionar(legenda: String?, aoTocar: () -> Unit) {
         ) { Text("+", color = Texto.copy(alpha = 0.7f), fontSize = 20.sp, fontWeight = FontWeight.Light) }
         if (legenda != null) Text(legenda, color = TextoFraco, fontSize = 11.sp, maxLines = 1, modifier = Modifier.padding(top = 3.dp))
     }
+}
+
+/** O anel de quem esta esperando: respira devagar (so anima enquanto alguem espera). */
+@Composable
+private fun Modifier.anelPulsando(cor: androidx.compose.ui.graphics.Color): Modifier {
+    val pulso = rememberInfiniteTransition(label = "anel")
+    val alfa by pulso.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.35f,
+        animationSpec = infiniteRepeatable(tween(1100), RepeatMode.Reverse),
+        label = "alfa",
+    )
+    return this.border(2.5.dp, cor.copy(alpha = alfa), CircleShape)
 }

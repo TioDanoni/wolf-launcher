@@ -1,5 +1,8 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -48,15 +51,25 @@ import org.wolfos.launcher.dados.filtrar
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun Gaveta(apps: List<AppInfo>, acoes: AcoesApp, busca: String, aoBuscar: (String) -> Unit) {
+fun Gaveta(
+    apps: List<AppInfo>,
+    acoes: AcoesApp,
+    busca: String,
+    aoBuscar: (String) -> Unit,
+    /** Os abertos por ultimo (aparecem no topo, sem busca). */
+    recentes: List<AppInfo> = emptyList(),
+    /** Quantas notificacoes cada pacote tem. */
+    avisos: Map<String, Int> = emptyMap(),
+) {
     val estado = rememberLazyListState()
     val escopo = rememberCoroutineScope()
     val lista = filtrar(apps, busca)
     val agrupado = busca.isBlank()
     val secoes = if (agrupado) lista.groupBy { it.letra } else emptyMap()
-    // indice de cada letra na lista (cabecalho + itens das letras de antes)
-    val indices = remember(lista, agrupado) {
-        var i = 0
+    val comRecentes = agrupado && recentes.isNotEmpty()
+    // indice de cada letra na lista (cabecalho + itens das letras de antes; os recentes vem antes)
+    val indices = remember(lista, agrupado, comRecentes) {
+        var i = if (comRecentes) 1 else 0
         secoes.mapValues { (_, itens) -> i.also { i += itens.size + 1 } }
     }
     var letraAtual by remember { mutableStateOf<String?>(null) }
@@ -79,6 +92,7 @@ fun Gaveta(apps: List<AppInfo>, acoes: AcoesApp, busca: String, aoBuscar: (Strin
         )
         Row(Modifier.fillMaxSize()) {
             LazyColumn(state = estado, modifier = Modifier.weight(1f).fillMaxHeight()) {
+                if (comRecentes) item(key = "recentes") { Recentes(recentes, acoes) }
                 if (agrupado) {
                     secoes.forEach { (letra, itens) ->
                         stickyHeader(key = "letra-$letra") {
@@ -90,10 +104,10 @@ fun Gaveta(apps: List<AppInfo>, acoes: AcoesApp, busca: String, aoBuscar: (Strin
                                 modifier = Modifier.padding(start = 24.dp, top = 14.dp, bottom = 4.dp),
                             )
                         }
-                        itens.forEach { app -> item(key = app.chave) { LinhaApp(app, acoes) } }
+                        itens.forEach { app -> item(key = app.chave) { LinhaApp(app, avisos[app.pacote] ?: 0, acoes) } }
                     }
                 } else {
-                    lista.forEach { app -> item(key = app.chave) { LinhaApp(app, acoes) } }
+                    lista.forEach { app -> item(key = app.chave) { LinhaApp(app, avisos[app.pacote] ?: 0, acoes) } }
                     if (lista.isEmpty()) {
                         item {
                             Text("Nenhum app com esse nome.", color = TextoFraco, modifier = Modifier.padding(24.dp))
@@ -118,7 +132,7 @@ fun Gaveta(apps: List<AppInfo>, acoes: AcoesApp, busca: String, aoBuscar: (Strin
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun LinhaApp(app: AppInfo, acoes: AcoesApp) {
+private fun LinhaApp(app: AppInfo, avisos: Int, acoes: AcoesApp) {
     var menu by remember(app.chave) { mutableStateOf(false) }
     Box {
         Row(
@@ -130,7 +144,8 @@ private fun LinhaApp(app: AppInfo, acoes: AcoesApp) {
         ) {
             IconeApp(app, 40.dp)
             Spacer(Modifier.width(16.dp))
-            Text(app.nome, fontSize = 18.sp, color = Texto, maxLines = 1)
+            Text(app.nome, fontSize = 18.sp, color = Texto, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
+            if (avisos > 0) Selo(avisos, Modifier.padding(start = 10.dp))
         }
         MenuApp(app, menu, { menu = false }, acoes)
     }
@@ -176,6 +191,28 @@ private fun BarraDeLetras(letras: List<String>, atual: String?, aoEscolher: (Str
                 fontWeight = if (escolhida) FontWeight.Bold else FontWeight.Medium,
                 color = if (escolhida) MaterialTheme.colorScheme.primary else TextoFraco,
             )
+        }
+    }
+}
+
+/** Os ultimos abertos, em icones grandes no topo da gaveta. */
+@Composable
+private fun Recentes(apps: List<AppInfo>, acoes: AcoesApp) {
+    Column(Modifier.padding(start = 24.dp, end = 12.dp, top = 4.dp, bottom = 8.dp)) {
+        Rotulo("Recentes", Modifier.padding(bottom = 10.dp))
+        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            apps.forEach { app ->
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.width(60.dp).clip(RoundedCornerShape(14.dp)).clickable { acoes.abrir(app) },
+                ) {
+                    IconeApp(app, 46.dp)
+                    Text(
+                        app.nome, color = Texto.copy(alpha = 0.8f), fontSize = 11.5.sp, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            }
         }
     }
 }
