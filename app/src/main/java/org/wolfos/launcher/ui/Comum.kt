@@ -33,10 +33,10 @@ import org.wolfos.launcher.dados.Icones
 
 /** O icone do app, carregado so quando aparece (ate la, um circulo discreto). */
 @Composable
-fun IconeApp(app: AppInfo, tamanho: Dp, modifier: Modifier = Modifier) {
+fun IconeApp(app: AppInfo, tamanho: Dp, modifier: Modifier = Modifier, mono: Boolean = false) {
     val contexto = LocalContext.current
-    val icone by produceState(Icones.daMemoria(app), app.chave) {
-        if (value == null) value = Icones.carregar(contexto, app)
+    val icone by produceState(if (mono) Icones.monoDaMemoria(app) else Icones.daMemoria(app), app.chave, mono) {
+        if (value == null) value = if (mono) Icones.carregarMono(contexto, app) else Icones.carregar(contexto, app)
     }
     val m = modifier.size(tamanho)
     icone?.let { Image(it, contentDescription = null, modifier = m) }

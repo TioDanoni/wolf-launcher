@@ -70,5 +70,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
+    // icones de traco (o R8 tira do APK os que nao sao usados)
+    implementation(libs.androidx.compose.icones)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

@@ -2,6 +2,7 @@ package org.wolfos.launcher.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -79,7 +80,7 @@ fun FileiraMatilha(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier) {
-        Rotulo("Matilha", Modifier.padding(start = 10.dp, bottom = 8.dp))
+        TituloMatilha()
         Row(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.Top,
@@ -200,7 +201,7 @@ fun FileiraConversas(
 ) {
     var escolhendo by remember { mutableStateOf(false) }
     Column(modifier) {
-        Rotulo("Matilha", Modifier.padding(start = 10.dp, bottom = 8.dp))
+        TituloMatilha()
         Row(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.Top,
@@ -338,5 +339,14 @@ private fun EscolherConversas(todas: List<Conversa>, fixadas: List<String>, aoAl
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             )
         }
+    }
+}
+
+/** "Matilha" com um traco na cor de destaque. */
+@Composable
+private fun TituloMatilha() {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 6.dp, bottom = 10.dp)) {
+        Text("Matilha", color = Texto, fontSize = 15.sp, fontWeight = FontWeight.Medium, style = TextStyle(shadow = SombraTexto))
+        Box(Modifier.padding(start = 10.dp).width(26.dp).height(2.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
     }
 }
