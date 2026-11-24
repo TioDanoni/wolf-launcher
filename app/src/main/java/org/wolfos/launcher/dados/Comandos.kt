@@ -45,7 +45,7 @@ fun interpretar(texto: String): List<Acao> {
     alarme(t)?.let(acoes::add)
     conta(texto.trim())?.let(acoes::add)
     if (t.length >= 3 && "lanterna".startsWith(t)) {
-        acoes += Acao("ϟ", if (Lanterna.ligada) "Desligar a lanterna" else "Ligar a lanterna", "lanterna do celular", Lanterna::alternar)
+        acoes += Acao("ϟ", if (Lanterna.ligada) "Desligar a lanterna" else "Ligar a lanterna", "lanterna do celular", executar = Lanterna::alternar)
     }
     acoes += ajustesDoAndroid(t)
     return acoes
