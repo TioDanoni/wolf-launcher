@@ -1,5 +1,6 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -174,7 +175,10 @@ private fun Modifier.anelPulsando(cor: androidx.compose.ui.graphics.Color): Modi
         animationSpec = infiniteRepeatable(tween(1100), RepeatMode.Reverse),
         label = "alfa",
     )
-    return this.border(2.5.dp, cor.copy(alpha = alfa), CircleShape)
+    val segunda = MaterialTheme.colorScheme.secondary
+    return this
+        .graphicsLayer { this.alpha = 0.55f + 0.45f * alfa }
+        .border(2.5.dp, androidx.compose.ui.graphics.Brush.sweepGradient(listOf(cor, segunda, cor)), CircleShape)
 }
 
 // ---------------------------------------------------------------- Matilha pelo WhatsApp
@@ -349,6 +353,6 @@ private fun EscolherConversas(todas: List<Conversa>, fixadas: List<String>, aoAl
 private fun TituloMatilha() {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 6.dp, bottom = 10.dp)) {
         Text("Matilha", color = Texto, fontSize = 15.sp, fontWeight = FontWeight.Medium, style = TextStyle(shadow = SombraTexto))
-        Box(Modifier.padding(start = 10.dp).width(26.dp).height(2.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
+        Box(Modifier.padding(start = 10.dp).width(26.dp).height(2.dp).clip(CircleShape).background(degradeH()))
     }
 }

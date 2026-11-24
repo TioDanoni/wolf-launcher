@@ -108,9 +108,10 @@ class MainActivity : ComponentActivity() {
             // o modo noite troca a cor de destaque, entao decide antes do tema
             val modoNoite by vm.modoNoite.collectAsStateWithLifecycle()
             val janela by vm.janelaNoite.collectAsStateWithLifecycle()
+            val paleta by vm.paleta.collectAsStateWithLifecycle()
             val momento = agora()
             val noite = modoNoite && Ritmo.ehNoite(momento.hour * 60 + momento.minute, janela.first, janela.second)
-            WolfTema(noite) { Tela(vm, home, noite, momento.hour) }
+            WolfTema(noite, paleta) { Tela(vm, home, noite, momento.hour) }
         }
     }
 
@@ -412,6 +413,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
         abrir = { c ->
             // se o atalho falhar (conversa apagada), abre o WhatsApp
             if (Conversas.abrir(contexto, c) || apps.firstOrNull { it.pacote == c.pacote }?.let { Apps.abrir(contexto, it) } == true) {
+                vm.registrarConversa(c)
                 voltarAoInicio()
             }
         },
@@ -424,8 +426,9 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     val conversasComNome = remember(conversas, contatos, fonteMatilha, fixadas) {
         Conversas.comNomes(conversas.filter { it.pacote in fonteMatilha.pacotes || it.chave in fixadas }, contatos)
     }
-    val daMatilha = remember(conversasComNome, fixadas, tipoMatilha, avisos) {
-        Conversas.matilha(conversasComNome, fixadas, tipoMatilha, avisos)
+    val usoConversas by vm.usoConversas.collectAsStateWithLifecycle()
+    val daMatilha = remember(conversasComNome, fixadas, tipoMatilha, avisos, usoConversas) {
+        Conversas.matilha(conversasComNome, fixadas, tipoMatilha, avisos, usoConversas)
     }
     val acoesComando = AcoesComando(
         ligar = { if (Contatos.ligar(contexto, it)) voltarAoInicio() },
@@ -441,7 +444,10 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
     val escuro by animateFloatAsState(if (tela == Telas.INICIO) 0.45f else 0.88f, label = "escuro")
 
     Box(Modifier.fillMaxSize()) {
-        Aurora(MaterialTheme.colorScheme.primary, escuro, degrade = tela == Telas.INICIO, animado = fundoAnimado)
+        Aurora(
+            MaterialTheme.colorScheme.primary, escuro, segunda = MaterialTheme.colorScheme.secondary,
+            degrade = tela == Telas.INICIO, animado = fundoAnimado,
+        )
         AnimatedContent(
             targetState = tela,
             transitionSpec = {
@@ -566,6 +572,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         fahrenheit = fahrenheit,
                         compromissos = mostrarCompromissos,
                         fundoAnimado = fundoAnimado,
+                        paleta = vm.paleta.collectAsStateWithLifecycle().value,
                         ritmo = ritmo,
                         modoNoite = modoNoite,
                         janelaNoite = janelaNoite,
@@ -602,6 +609,7 @@ private fun Tela(vm: LauncherViewModel, home: Int, noite: Boolean, hora: Int) {
                         fahrenheit = vm::definirFahrenheit,
                         compromissos = vm::definirCompromissos,
                         fundoAnimado = vm::definirFundoAnimado,
+                        paleta = vm::definirPaleta,
                         ritmo = vm::definirRitmo,
                         modoNoite = vm::definirModoNoite,
                         janelaNoite = vm::definirJanelaNoite,

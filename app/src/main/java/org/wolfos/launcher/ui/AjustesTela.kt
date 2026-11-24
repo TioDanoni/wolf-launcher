@@ -1,7 +1,18 @@
 package org.wolfos.launcher.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -85,6 +96,7 @@ class EstadoAjustes(
     val fahrenheit: Boolean,
     val compromissos: Boolean,
     val fundoAnimado: Boolean,
+    val paleta: Paleta,
     val ritmo: Boolean,
     val modoNoite: Boolean,
     val janelaNoite: Pair<Int, Int>,
@@ -119,6 +131,7 @@ class AcoesAjustes(
     val fahrenheit: (Boolean) -> Unit,
     val compromissos: (Boolean) -> Unit,
     val fundoAnimado: (Boolean) -> Unit,
+    val paleta: (Paleta) -> Unit,
     val ritmo: (Boolean) -> Unit,
     val modoNoite: (Boolean) -> Unit,
     val janelaNoite: (Int, Int) -> Unit,
@@ -166,6 +179,37 @@ private fun PaginaPrincipal(estado: EstadoAjustes, acoes: AcoesAjustes, abrir: (
     }
     if (!estado.ehPadrao) {
         LinhaMenu(Icons.Outlined.Home, "Usar como tela inicial", "o WolfLauncher ainda não é a tela inicial", fim = { Seta() }, aoTocar = acoes.definirPadrao)
+    }
+
+    SecaoMenu("Cores")
+    Text(
+        "As cores do WolfLauncher (relógio, traços, busca, player, aurora). À noite fica lilás.",
+        color = TextoFraco, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 24.dp),
+    )
+    Row(
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
+    ) {
+        for (p in Paleta.entries) {
+            val marcada = p == estado.paleta
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.clip(RoundedCornerShape(16.dp)).clickable { acoes.paleta(p) }.padding(6.dp),
+            ) {
+                Box(
+                    Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Brush.linearGradient(listOf(p.primaria, p.secundaria)))
+                        .border(if (marcada) 3.dp else 0.dp, if (marcada) Texto else Color.Transparent, CircleShape),
+                )
+                Text(
+                    p.titulo, color = if (marcada) Texto else TextoFraco, fontSize = 11.5.sp,
+                    fontWeight = if (marcada) FontWeight.SemiBold else FontWeight.Normal,
+                    maxLines = 1, modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+        }
     }
 
     SecaoMenu("Topo")

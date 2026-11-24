@@ -85,7 +85,7 @@ fun Player(musica: Musica, acoes: AcoesPlayer, modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .clip(forma)
             .background(Superficie.copy(alpha = 0.82f))
-            .border(1.dp, Texto.copy(alpha = 0.08f), forma)
+            .border(1.dp, androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(cor.copy(alpha = 0.5f), MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f))), forma)
             .padding(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -110,7 +110,7 @@ fun Player(musica: Musica, acoes: AcoesPlayer, modifier: Modifier = Modifier) {
             Botao(Icons.Rounded.SkipPrevious, "Anterior", acoes.anterior)
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier.size(46.dp).clip(CircleShape).background(cor).clickable(onClick = acoes.tocarOuPausar),
+                modifier = Modifier.size(46.dp).clip(CircleShape).background(degrade()).clickable(onClick = acoes.tocarOuPausar),
             ) {
                 Icon(
                     if (musica.tocando) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
@@ -141,7 +141,7 @@ fun Player(musica: Musica, acoes: AcoesPlayer, modifier: Modifier = Modifier) {
                             .fillMaxWidth(parte)
                             .height(4.dp)
                             .clip(CircleShape)
-                            .background(cor),
+                            .background(degradeH()),
                     )
                 }
                 Text(tempo(musica.duracao), color = TextoFraco, fontSize = 11.sp)

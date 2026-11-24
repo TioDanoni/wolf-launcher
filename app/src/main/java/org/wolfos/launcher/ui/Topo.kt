@@ -70,6 +70,16 @@ private val HM = DateTimeFormatter.ofPattern("HH:mm")
 /** O desenho do tempo e como ele se mexe (o sol gira, a nuvem flutua, a chuva cai). */
 private enum class Jeito { GIRA, FLUTUA, CAI, PARADO }
 
+/** A cor do tempo: sol dourado, noite lilas, nuvem azul-clara, chuva azul, neve gelo, raio amarelo. */
+private fun corDoTempo(codigo: Int, dia: Boolean): androidx.compose.ui.graphics.Color = when (codigo) {
+    0, 1 -> if (dia) androidx.compose.ui.graphics.Color(0xFFFFC94A) else androidx.compose.ui.graphics.Color(0xFFB98CFF)
+    2, 3, 45, 48 -> androidx.compose.ui.graphics.Color(0xFFA9C7FF)
+    in 51..67, in 80..82 -> androidx.compose.ui.graphics.Color(0xFF5BB4FF)
+    in 71..77, 85, 86 -> androidx.compose.ui.graphics.Color(0xFFCDEBFF)
+    in 95..99 -> androidx.compose.ui.graphics.Color(0xFFFFD84A)
+    else -> androidx.compose.ui.graphics.Color(0xFFA9C7FF)
+}
+
 private fun desenhoDoTempo(codigo: Int, dia: Boolean): Pair<ImageVector, Jeito> = when (codigo) {
     0, 1 -> if (dia) Icons.Outlined.WbSunny to Jeito.GIRA else Icons.Outlined.NightsStay to Jeito.FLUTUA
     2 -> Icons.Outlined.WbCloudy to Jeito.FLUTUA
@@ -91,7 +101,7 @@ fun IconeTempo(codigo: Int, dia: Boolean, tamanho: androidx.compose.ui.unit.Dp) 
     Icon(
         icone,
         contentDescription = null,
-        tint = MaterialTheme.colorScheme.primary,
+        tint = corDoTempo(codigo, dia),
         modifier = Modifier
             .size(tamanho)
             .graphicsLayer {
@@ -155,7 +165,7 @@ fun CompromissosDoDia(eventos: List<Evento>, temAgenda: Boolean, acoes: AcoesCom
     Column(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp)) {
             Text("Hoje", color = Texto, fontSize = 14.sp, fontWeight = FontWeight.Medium, style = TextStyle(shadow = SombraTexto))
-            Box(Modifier.padding(start = 10.dp).width(20.dp).size(width = 20.dp, height = 2.dp).clip(CircleShape).background(cor))
+            Box(Modifier.padding(start = 10.dp).size(width = 26.dp, height = 2.dp).clip(CircleShape).background(degradeH()))
             Box(Modifier.weight(1f))
             if (temAgenda) {
                 Box(
@@ -202,7 +212,7 @@ private fun LinhaCompromisso(hora: String?, titulo: String, sub: String?, botao:
             .clickable(onClick = aoTocar)
             .padding(horizontal = 4.dp, vertical = 6.dp),
     ) {
-        Box(Modifier.size(8.dp).clip(CircleShape).background(cor))
+        Box(Modifier.size(8.dp).clip(CircleShape).background(degrade()))
         if (hora != null) {
             Text(hora, color = cor, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 10.dp).width(46.dp))
         }

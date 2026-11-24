@@ -36,6 +36,11 @@ class Preferencias(contexto: Context) {
         get() = prefs.getBoolean("fundo_animado", true)
         set(v) = prefs.edit().putBoolean("fundo_animado", v).apply()
 
+    /** A paleta de cores (nome do enum Paleta). */
+    var paleta: String
+        get() = prefs.getString("paleta", "LOBO") ?: "LOBO"
+        set(v) = prefs.edit().putString("paleta", v).apply()
+
     /** A fileira da Matilha na tela inicial. */
     var mostrarMatilha: Boolean
         get() = prefs.getBoolean("mostrar_matilha", true)

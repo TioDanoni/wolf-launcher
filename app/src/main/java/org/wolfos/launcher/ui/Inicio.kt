@@ -1,5 +1,6 @@
 package org.wolfos.launcher.ui
 
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -390,13 +391,16 @@ private fun LinhaVerbo(
                 .combinedClickable(interactionSource = toque, indication = null, onClick = aoTocar, onLongClick = aoSegurar)
                 .padding(horizontal = 6.dp, vertical = 12.dp),
         ) {
-            Icon(
-                iconeDoVerbo(verbo),
-                contentDescription = null,
-                tint = if (ativo) cor else Texto,
-                modifier = Modifier.size(26.dp),
-            )
-            Box(Modifier.padding(horizontal = 14.dp).width(1.dp).height(34.dp).background(Texto.copy(alpha = 0.3f)))
+            val corV = corDoVerbo(verbo)
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Brush.linearGradient(listOf(corV.copy(alpha = if (ativo) 0.38f else 0.22f), corV.copy(alpha = 0.06f))))
+                    .border(1.dp, corV.copy(alpha = if (ativo) 0.7f else 0.35f), RoundedCornerShape(14.dp)),
+            ) { Icon(iconeDoVerbo(verbo), contentDescription = null, tint = corV, modifier = Modifier.size(24.dp)) }
+            Box(Modifier.padding(horizontal = 14.dp).width(1.dp).height(34.dp).background(corV.copy(alpha = 0.35f)))
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -407,8 +411,8 @@ private fun LinhaVerbo(
                         style = TextStyle(shadow = SombraTexto),
                     )
                     when {
-                        musica?.tocando == true -> Equalizador(cor, Modifier.padding(start = 10.dp))
-                        previa != null -> Box(Modifier.padding(start = 8.dp).size(7.dp).clip(CircleShape).background(cor))
+                        musica?.tocando == true -> Equalizador(corDoVerbo(verbo), Modifier.padding(start = 10.dp))
+                        previa != null -> Box(Modifier.padding(start = 8.dp).size(7.dp).clip(CircleShape).background(corDoVerbo(verbo)))
                     }
                 }
                 val sub = when {
@@ -418,7 +422,7 @@ private fun LinhaVerbo(
                 }
                 Text(
                     sub,
-                    color = if (musica != null || previa != null) cor else Texto.copy(alpha = 0.6f),
+                    color = if (musica != null || previa != null) corDoVerbo(verbo) else Texto.copy(alpha = 0.6f),
                     fontSize = 12.5.sp,
                     fontWeight = if (musica != null || previa != null) FontWeight.Medium else FontWeight.Normal,
                     maxLines = 1,
@@ -451,7 +455,7 @@ private fun Marca(modifier: Modifier = Modifier) {
     val abre = remember { Animatable(0f) }
     LaunchedEffect(Unit) { abre.animateTo(1f, tween(700, easing = FastOutSlowInEasing)) }
     Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier.graphicsLayer { alpha = 0.3f + 0.7f * abre.value }) {
-        Box(Modifier.width(44.dp).height(1.dp).graphicsLayer { scaleX = abre.value; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 0.5f) }.background(cor.copy(alpha = 0.7f)))
+        Box(Modifier.width(44.dp).height(1.dp).graphicsLayer { scaleX = abre.value; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 0.5f) }.background(Brush.horizontalGradient(listOf(Color.Transparent, cor))))
         Icon(
             painterResource(R.drawable.marca_lobo),
             contentDescription = null,
@@ -463,7 +467,7 @@ private fun Marca(modifier: Modifier = Modifier) {
         Box(
             Modifier.padding(start = 12.dp).width(44.dp).height(1.dp)
                 .graphicsLayer { scaleX = abre.value; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0.5f) }
-                .background(cor.copy(alpha = 0.7f)),
+                .background(Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.secondary, Color.Transparent))),
         )
     }
 }
@@ -485,7 +489,8 @@ private fun FaixaLimpa(simbolo: String, texto: String, botao: String?, aoTocar: 
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.Black.copy(alpha = 0.28f))
+            .background(Color.Black.copy(alpha = 0.30f))
+            .border(1.dp, Brush.horizontalGradient(listOf(cor.copy(alpha = 0.45f), MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f))), RoundedCornerShape(16.dp))
             .clickable(onClick = aoTocar)
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
@@ -516,7 +521,7 @@ private fun BarraBusca(noite: Boolean, aoTocar: () -> Unit) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
             .background(Superficie.copy(alpha = 0.82f))
-            .border(1.dp, Texto.copy(alpha = 0.08f), RoundedCornerShape(20.dp))
+            .border(1.dp, Brush.horizontalGradient(listOf(cor.copy(alpha = 0.55f), MaterialTheme.colorScheme.secondary.copy(alpha = 0.25f))), RoundedCornerShape(20.dp))
             .clickable(onClick = aoTocar)
             .padding(horizontal = 16.dp)
             .height(52.dp),
@@ -584,6 +589,10 @@ private fun Equalizador(cor: Color, modifier: Modifier = Modifier) {
 private fun Relogio(clima: Clima?, modifier: Modifier = Modifier) {
     val momento = agora()
     Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
+        val pincelRelogio = Brush.verticalGradient(
+            0.25f to Texto,
+            1f to MaterialTheme.colorScheme.primary,
+        )
         // cada numero desliza quando muda (o minuto virando)
         Row {
             momento.format(HORA).forEachIndexed { i, ch ->
@@ -599,19 +608,18 @@ private fun Relogio(clima: Clima?, modifier: Modifier = Modifier) {
                         c.toString(),
                         fontSize = 66.sp,
                         fontWeight = FontWeight.Light,
-                        color = Texto,
-                        style = TextStyle(shadow = SombraTexto),
+                        style = TextStyle(brush = pincelRelogio, shadow = SombraTexto),
                     )
                 }
             }
         }
-        Box(Modifier.padding(horizontal = 18.dp).width(1.dp).height(56.dp).background(Texto.copy(alpha = 0.45f)))
+        Box(Modifier.padding(horizontal = 18.dp).width(1.5.dp).height(56.dp).clip(CircleShape).background(Brush.verticalGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondary))))
         Column {
             Text(
                 momento.format(SEMANA).replaceFirstChar { it.uppercase() },
-                color = Texto,
                 fontSize = 21.sp,
-                style = TextStyle(shadow = SombraTexto),
+                fontWeight = FontWeight.Medium,
+                style = TextStyle(brush = degradeH(), shadow = SombraTexto),
             )
             Text(momento.format(DATA), color = Texto.copy(alpha = 0.7f), fontSize = 15.sp, style = TextStyle(shadow = SombraTexto))
             if (clima != null) {

@@ -221,6 +221,16 @@ class Ouvinte : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         atualizar()
         sbn?.let(::olharPlayer)
+        sbn?.let(::contarMensagem)
+    }
+
+    /** Mensagem nova de uma conversa do WhatsApp: conta para a Matilha saber quem fala mais. */
+    private fun contarMensagem(sbn: StatusBarNotification) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        if (sbn.packageName !in org.wolfos.launcher.dados.Conversas.PACOTES) return
+        if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
+        val atalho = sbn.notification.shortcutId ?: return
+        org.wolfos.launcher.dados.UsoConversas(applicationContext).registrarMensagem("${sbn.packageName}|$atalho")
     }
 
     /** A notificacao de um player traz a sessao de midia: o player da tela inicial usa. */

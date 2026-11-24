@@ -37,11 +37,14 @@ import org.wolfos.launcher.dados.Conversas
 import org.wolfos.launcher.dados.Fixadas
 import org.wolfos.launcher.dados.FonteMatilha
 import org.wolfos.launcher.dados.TipoMatilha
+import org.wolfos.launcher.dados.UsoConversa
+import org.wolfos.launcher.dados.UsoConversas
 import org.wolfos.launcher.dados.EscolhasVerbo
 import org.wolfos.launcher.dados.Icones
 import org.wolfos.launcher.dados.Matilha
 import org.wolfos.launcher.dados.Cidade
 import org.wolfos.launcher.dados.Padrao
+import org.wolfos.launcher.ui.Paleta
 import org.wolfos.launcher.dados.Previsao
 import org.wolfos.launcher.dados.Tempo
 import org.wolfos.launcher.dados.Personalizacao
@@ -242,6 +245,14 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         _fundoAnimado.value = v
     }
 
+    private val _paleta = MutableStateFlow(Paleta.entries.firstOrNull { it.name == preferencias.paleta } ?: Paleta.LOBO)
+    val paleta: StateFlow<Paleta> = _paleta.asStateFlow()
+
+    fun definirPaleta(p: Paleta) {
+        preferencias.paleta = p.name
+        _paleta.value = p
+    }
+
     private val _mostrarMatilha = MutableStateFlow(preferencias.mostrarMatilha)
     val mostrarMatilha: StateFlow<Boolean> = _mostrarMatilha.asStateFlow()
 
@@ -290,6 +301,16 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _conversas.value = withContext(Dispatchers.IO) { Conversas.carregar(getApplication()) }
         }
+    }
+
+    // o uso das conversas (abertas pela Matilha, mensagens recebidas): a ordem inteligente
+    private val usoConversasArq = UsoConversas(app)
+    private val _usoConversas = MutableStateFlow(usoConversasArq.ler())
+    val usoConversas: StateFlow<Map<String, UsoConversa>> = _usoConversas.asStateFlow()
+
+    fun registrarConversa(c: Conversa) {
+        usoConversasArq.registrarAbertura(c.chave)
+        _usoConversas.value = usoConversasArq.ler()
     }
 
     fun alternarFixada(c: Conversa) {
@@ -348,6 +369,8 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         carregarConversas()
         if (Avisos.permitido(app)) Tocando.iniciar(app)
         TrabalhoAtualizacao.agendar(app)
+        // mensagem nova chegou (o servico contou): a ordem da Matilha acompanha
+        viewModelScope.launch { Avisos.lista.collect { _usoConversas.value = usoConversasArq.ler() } }
         // sem cidade escolhida ainda: usa a da notificacao do clima (ex.: "Piracicaba: 23°")
         viewModelScope.launch {
             Avisos.clima.collect { c ->
@@ -439,6 +462,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         carregarConversas()
         carregarDia()
         atualizarTempo()
+        _usoConversas.value = usoConversasArq.ler()
         viewModelScope.launch {
             Atualizador.aoVoltar(getApplication())
             val passou = System.currentTimeMillis() - preferencias.ultimaVerificacao

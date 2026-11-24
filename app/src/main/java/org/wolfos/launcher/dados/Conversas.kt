@@ -13,6 +13,8 @@ import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.wolfos.launcher.avisos.Aviso
+import kotlin.math.exp
+import kotlin.math.ln
 
 /** Uma conversa do WhatsApp (pessoa ou grupo), vinda dos atalhos que o proprio app publica. */
 @Immutable
@@ -23,6 +25,8 @@ data class Conversa(
     val grupo: Boolean,
     /** Quando o WhatsApp mexeu no atalho pela ultima vez (mais ou menos a ultima conversa). */
     val mudou: Long,
+    /** A ordem que o proprio WhatsApp da (0 = a que ele acha mais importante). */
+    val rank: Int = 99,
 ) {
     val chave: String = "$pacote|$id"
     val busca: String = semAcento(nome)
@@ -80,6 +84,7 @@ object Conversas {
         nome = (s.shortLabel ?: s.longLabel)?.toString()?.trim().orEmpty().ifEmpty { s.id.substringBefore('@') },
         grupo = s.id.endsWith("@g.us"),
         mudou = s.lastChangedTimestamp,
+        rank = if (s.isDynamic) s.rank else 99,
     )
 
     fun iconeDaMemoria(c: Conversa): ImageBitmap? = icones.get(c.chave)
@@ -158,7 +163,29 @@ object Conversas {
     /** Sem escolha: o WhatsApp pessoal, se tiver; senao o Business; senao a agenda. */
     fun fontePadrao(contexto: Context): FonteMatilha = fontesPossiveis(contexto).first()
 
-    fun matilha(todas: List<Conversa>, fixadas: List<String>, tipo: TipoMatilha, avisos: List<Aviso>, maximo: Int = 10): List<Conversa> {
+    /**
+     * A nota de cada conversa para a Matilha: quem esta esperando sobe muito; depois, o
+     * quanto e recente (cai pela metade a cada ~2 dias) e o quanto e usada (aberturas
+     * pela Matilha valem mais que mensagens recebidas); a ordem do WhatsApp desempata.
+     */
+    fun nota(c: Conversa, uso: UsoConversa?, avisos: List<Aviso>, agora: Long = System.currentTimeMillis()): Double {
+        val ultima = maxOf(c.mudou, uso?.ultimaAbertura ?: 0L, uso?.ultimaMensagem ?: 0L)
+        val dias = (agora - ultima).coerceAtLeast(0) / 86_400_000.0
+        val recencia = exp(-dias / 3.0)
+        val frequencia = ln(1.0 + (uso?.abertas ?: 0) * 2.0 + (uso?.mensagens ?: 0) * 0.4)
+        val doWhatsapp = if (c.rank in 0..4) (5 - c.rank) * 0.15 else 0.0
+        val espera = if (esperando(c, avisos).isNotEmpty()) 4.0 else 0.0
+        return 3.0 * recencia + 1.2 * frequencia + doWhatsapp + espera
+    }
+
+    fun matilha(
+        todas: List<Conversa>,
+        fixadas: List<String>,
+        tipo: TipoMatilha,
+        avisos: List<Aviso>,
+        uso: Map<String, UsoConversa> = emptyMap(),
+        maximo: Int = 10,
+    ): List<Conversa> {
         val porChave = todas.associateBy { it.chave }
         val doTipo = { c: Conversa ->
             when (tipo) {
@@ -169,7 +196,7 @@ object Conversas {
         }
         val fixas = fixadas.mapNotNull { porChave[it] }
         val resto = todas.filter { it.chave !in fixadas && doTipo(it) }
-            .sortedWith(compareByDescending<Conversa> { esperando(it, avisos).isNotEmpty() }.thenByDescending { it.mudou })
+            .sortedByDescending { nota(it, uso[it.chave], avisos) }
         return (fixas + resto).take(maximo)
     }
 }
