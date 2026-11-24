@@ -388,11 +388,22 @@ private fun Agora(estado: EstadoDia, acoes: AcoesDia) {
                         modifier = Modifier.clickable(onClick = acoes.pararCaca),
                     )
                 } else {
-                    Text("Modo Caça", color = Texto, fontSize = 14.5.sp, modifier = Modifier.weight(1f).padding(start = 8.dp))
+                    Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                        Text("Modo Caça", color = Texto, fontSize = 14.5.sp, maxLines = 1)
+                        Text("esconde o que distrai", color = TextoFraco, fontSize = 12.sp, maxLines = 1)
+                    }
+                }
+            }
+            if (estado.cacaAte <= System.currentTimeMillis()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(start = 22.dp, top = 6.dp)) {
                     listOf(25, 45, 90).forEach { m ->
                         Text(
-                            "$m min", color = cor, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.clip(CircleShape).clickable { acoes.comecarCaca(m) }.padding(horizontal = 8.dp, vertical = 4.dp),
+                            "$m min", color = cor, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .border(1.dp, cor.copy(alpha = 0.35f), CircleShape)
+                                .clickable { acoes.comecarCaca(m) }
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
                         )
                     }
                 }

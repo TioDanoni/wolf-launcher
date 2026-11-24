@@ -173,7 +173,7 @@ fun PainelTela(estado: EstadoPainel, acoes: AcoesPainel) {
                 }
                 if (!visivel) continue
                 key(parte) {
-                    Box(Modifier.entrada(i++, atraso = 45L)) {
+                    Column(Modifier.entrada(i++, atraso = 45L)) {
                         when (parte) {
                             PartePainel.CLIMA_BATERIA -> ClimaBateria(estado, acoes)
                             PartePainel.CONTROLES -> Controles(acoes) { escolhendoTimer = true }
